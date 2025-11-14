@@ -1,0 +1,2 @@
+[console_scripts]
+geminiai = geminiai_cli.cli:main

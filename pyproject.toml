@@ -1,0 +1,14 @@
+[project]
+name = "geminiai-cli"
+version = "0.1.0"
+description = "Gemini AI CLI Tool for automation"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+geminiai = "geminiai_cli.cli:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

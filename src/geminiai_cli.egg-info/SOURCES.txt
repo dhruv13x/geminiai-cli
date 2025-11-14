@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+src/__init__.py
+src/geminiai_cli/__init__.py
+src/geminiai_cli/cli.py
+src/geminiai_cli.egg-info/PKG-INFO
+src/geminiai_cli.egg-info/SOURCES.txt
+src/geminiai_cli.egg-info/dependency_links.txt
+src/geminiai_cli.egg-info/entry_points.txt
+src/geminiai_cli.egg-info/top_level.txt
