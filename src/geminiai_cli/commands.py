@@ -83,6 +83,8 @@ def do_update():
 
     cprint(NEON_YELLOW, "[INFO] Updating Gemini CLI...")
     run("rm -f /usr/bin/gemini")
+    run("rm -rf /usr/lib/node_modules/@google")
+    run("ls -la /usr/lib/node_modules/@google")
     run("npm install -g @google/gemini-cli")
 
     cprint(NEON_GREEN, "\n[OK] Update complete. Installed version:")

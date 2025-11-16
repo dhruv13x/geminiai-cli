@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, mock_open
-from src.geminiai_cli.utils import run_capture, run, read_file
+from geminiai_cli.utils import run_capture, run, read_file
 
 @patch("subprocess.check_output")
 def test_run_capture(mock_check_output):

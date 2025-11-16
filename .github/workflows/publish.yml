@@ -1,33 +1,64 @@
-name: Publish to PyPI
+name: 🚀 Publish to PyPI (Trusted Publishing)
 
 on:
   push:
     tags:
-      - "v*"
+      - "v*.*.*"  # Trigger only on semantic version tags (e.g., v1.2.3)
 
 permissions:
-  id-token: write   # Mandatory for OIDC (PyPI Trusted Publisher)
   contents: read
+  id-token: write  # Required for PyPI OIDC Trusted Publishing
 
 jobs:
-  build:
+  build-and-publish:
+    name: Build & Publish
     runs-on: ubuntu-latest
-    environment: pypi     # <====== REQUIRED (must match PyPI environment name)
+    environment: pypi # Assumes a GitHub environment named 'pypi' is configured
 
     steps:
-      - name: Checkout
+      - name: 🧩 Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: 🐍 Set up Python 3.13
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
-      - name: Install build backend
-        run: pip install build
+      - name: 📦 Install build, test, and dev tools
+        run: |
+          python -m pip install --upgrade pip
+          # Install core build tools
+          pip install build twine
+          # Install project-specific development dependencies
+          # This assumes 'dev' extra is defined in pyproject.toml and includes
+          # pytest, pytest-cov, ruff, black, mypy, etc.
+          pip install .[dev]
+          # Install codecov-action dependency if not already in [dev]
+          pip install codecov
 
-      - name: Build package
+      - name: 🧪 Run tests & generate coverage
+        # This command assumes pytest is used and the main package code is in 'src'.
+        # If a project's main package is named differently (e.g., 'src/my_tool_name'),
+        # '--cov=src' should still work if the package is directly under 'src'.
+        run: pytest --cov=src --cov-report=xml
+
+      - name: 📊 Upload coverage reports to Codecov
+        # Requires a CODECOV_TOKEN secret to be configured in the repository settings.
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.xml
+          verbose: true
+          fail_ci_if_error: true
+
+      - name: ⚙️ Build distribution packages
         run: python -m build
 
-      - name: Publish package to PyPI
+      - name: ✅ Verify distribution
+        run: twine check dist/*
+
+      - name: 🚀 Publish to PyPI (via OIDC)
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          skip-existing: false  # Fail if version already exists (prevents accidental overwrites)

@@ -12,3 +12,53 @@ geminiai = "geminiai_cli.cli:main"
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+# Make pytest aware of src/ layout
+pythonpath = [
+    "src",
+]
+
+# Where tests live
+testpaths = [
+    "tests",
+]
+
+# Async support (you use anyio + asyncio)
+asyncio_mode = "strict"
+
+# Optional markers (expand later if needed)
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+]
+
+# Warnings
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+# Recommended pytest options
+addopts = [
+    "-v",
+    "-ra",
+    "--tb=short",
+    "--showlocals",
+    "--timeout=10",
+    "--durations=10",
+    "--cov=geminiai_cli",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-fail-under=85",
+]
+
+# Coverage config
+[tool.coverage.run]
+branch = true
+source = [
+    "src/geminiai_cli",
+]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_covered = true
