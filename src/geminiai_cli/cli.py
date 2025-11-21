@@ -52,7 +52,7 @@ def main():
     )
 
     # Backup command
-    backup_parser = subparsers.add_parser("backup", help="Backup Gemini configuration and chats.")
+    backup_parser = subparsers.add_parser("backup", help="Backup Gemini configuration and chats (local or Backblaze B2 cloud).")
     backup_parser.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
     backup_parser.add_argument("--archive-dir", default="/root/geminiai_backups", help="Directory to store tar.gz archives (default /root/geminiai_backups)")
     backup_parser.add_argument("--dest-dir-parent", default="/root/geminiai_backups", help="Parent directory where timestamped backups are stored (default /root/geminiai_backups)")
@@ -63,7 +63,7 @@ def main():
     backup_parser.add_argument("--b2-key", help="B2 App Key (or set env B2_APPLICATION_KEY)")
 
     # Restore command
-    restore_parser = subparsers.add_parser("restore", help="Restore Gemini configuration from a backup.")
+    restore_parser = subparsers.add_parser("restore", help="Restore Gemini configuration from a backup (local or Backblaze B2 cloud).")
     restore_parser.add_argument("--from-dir", help="Directory backup to restore from (preferred)")
     restore_parser.add_argument("--from-archive", help="Tar.gz archive to restore from")
     restore_parser.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for timestamped backups when no --from-dir (default /root/geminiai_backups)")
@@ -81,7 +81,7 @@ def main():
     integrity_parser.add_argument("--search-dir", default="/root/geminiai_backups", help="Backup directory for integrity check (default: /root/geminiai_backups)")
 
     # List backups command
-    list_backups_parser = subparsers.add_parser("list-backups", help="List available backups.")
+    list_backups_parser = subparsers.add_parser("list-backups", help="List available backups (local or Backblaze B2 cloud).")
     list_backups_parser.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for backups (default /root/geminiai_backups)")
     list_backups_parser.add_argument("--cloud", action="store_true", help="List backups from Cloud (B2)")
     list_backups_parser.add_argument("--bucket", help="B2 Bucket Name")
