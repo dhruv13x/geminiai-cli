@@ -68,8 +68,10 @@ You need to provide your Backblaze B2 credentials. You can do this in two ways:
 
 **Usage:**
 
+- `geminiai check-b2`: Verify Backblaze B2 credentials and bucket access.
 - `geminiai backup --cloud`: Create a local backup and upload it to your B2 bucket.
 - `geminiai restore --cloud`: Restore your configuration from the oldest backup archive stored in your B2 bucket.
+- `geminiai list-backups --cloud`: List available backups in your B2 bucket.
 
 ## Usage Examples
 
@@ -103,4 +105,18 @@ geminiai restore --cloud
 
 ```bash
 geminiai list-backups
+```
+
+**6. Verify Backblaze B2 credentials:**
+
+(Assuming environment variables are set)
+```bash
+geminiai check-b2
+```
+
+**7. List available cloud backups:**
+
+(Assuming environment variables are set)
+```bash
+geminiai list-backups --cloud
 ```
