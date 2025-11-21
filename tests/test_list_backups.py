@@ -1,0 +1,58 @@
+import pytest
+from unittest.mock import patch, MagicMock
+import os
+import sys
+from geminiai_cli import list_backups
+
+@patch("geminiai_cli.list_backups.B2Manager")
+def test_main_cloud(mock_b2):
+    with patch("sys.argv", ["list_backups.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
+        mock_file = MagicMock()
+        mock_file.file_name = "backup.gemini.tar.gz"
+        mock_b2.return_value.list_backups.return_value = [(mock_file, None)]
+        list_backups.main()
+        mock_b2.return_value.list_backups.assert_called()
+
+@patch("geminiai_cli.list_backups.B2Manager")
+def test_main_cloud_empty(mock_b2):
+    with patch("sys.argv", ["list_backups.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
+        mock_b2.return_value.list_backups.return_value = []
+        list_backups.main()
+
+@patch("geminiai_cli.list_backups.B2Manager")
+def test_main_cloud_error(mock_b2):
+    with patch("sys.argv", ["list_backups.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
+        mock_b2.return_value.list_backups.side_effect = Exception("Error")
+        with pytest.raises(SystemExit):
+            list_backups.main()
+
+def test_main_cloud_no_creds():
+    with patch("sys.argv", ["list_backups.py", "--cloud"]):
+        with pytest.raises(SystemExit):
+            list_backups.main()
+
+@patch("os.path.isdir", return_value=True)
+@patch("os.listdir")
+@patch("os.path.isfile", return_value=True)
+def test_main_local(mock_isfile, mock_listdir, mock_isdir):
+    mock_listdir.return_value = ["backup.gemini.tar.gz", "other.txt"]
+    with patch("sys.argv", ["list_backups.py", "--search-dir", "/tmp"]):
+        list_backups.main()
+
+@patch("os.path.isdir", return_value=True)
+@patch("os.listdir")
+def test_main_local_empty(mock_listdir, mock_isdir):
+    mock_listdir.return_value = []
+    with patch("sys.argv", ["list_backups.py", "--search-dir", "/tmp"]):
+        list_backups.main()
+
+@patch("os.path.isdir", return_value=False)
+def test_main_local_no_dir(mock_isdir):
+    with patch("sys.argv", ["list_backups.py", "--search-dir", "/tmp"]):
+        list_backups.main()
+
+@patch("os.path.isdir", return_value=True)
+@patch("os.listdir", side_effect=OSError)
+def test_main_local_error(mock_listdir, mock_isdir):
+    with patch("sys.argv", ["list_backups.py", "--search-dir", "/tmp"]):
+        list_backups.main()

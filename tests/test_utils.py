@@ -4,7 +4,7 @@ from geminiai_cli.utils import run_capture, run, read_file
 
 @patch("subprocess.check_output")
 def test_run_capture(mock_check_output):
-    mock_check_output.return_value = "hello"
+    mock_check_output.return_value = b"hello"
     assert run_capture("echo hello") == "hello"
 
 import subprocess

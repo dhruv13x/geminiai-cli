@@ -16,6 +16,14 @@ def run(cmd):
         cprint(NEON_RED, f"[ERROR] Command failed: {e}")
         sys.exit(1)
 
+def run_capture(cmd):
+    """Run a shell command and return output."""
+    try:
+        # check_output returns bytes, so decode to string
+        return subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
+    except subprocess.CalledProcessError:
+        return None
+
 def read_file(path):
     """Safe file reader."""
     if not os.path.exists(path):

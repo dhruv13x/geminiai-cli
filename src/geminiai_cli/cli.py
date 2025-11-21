@@ -31,7 +31,7 @@ def main():
     parser.add_argument(
         "--next",
         nargs="?",
-        const=None,
+        const="*ALL*",
         help="Show next usage time. Optionally pass email or id: --next alice@example.com"
     )
     parser.add_argument(
@@ -178,6 +178,8 @@ def main():
             cprint(NEON_YELLOW, f"[WARN] No entries matched: {key}")
     elif args.next is not None:
         ident = args.next
+        if ident == "*ALL*":
+            ident = None
         do_next_reset(ident)
     elif args.add is not None:
         do_capture_reset(args.add)
