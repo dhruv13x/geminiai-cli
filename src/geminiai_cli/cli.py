@@ -17,6 +17,7 @@ from .backup import main as backup_main
 from .restore import main as restore_main
 from .integrity import main as integrity_main
 from .list_backups import main as list_backups_main
+from .check_b2 import main as check_b2_main
 
 def main():
     parser = argparse.ArgumentParser(description="Gemini CLI Automation Script (Neon Theme)")
@@ -83,6 +84,13 @@ def main():
     list_backups_parser = subparsers.add_parser("list-backups", help="List available backups.")
     list_backups_parser.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for backups (default /root/geminiai_backups)")
 
+    # Check B2 command
+    check_b2_parser = subparsers.add_parser("check-b2", help="Verify Backblaze B2 credentials.")
+    check_b2_parser.add_argument("--b2-id", help="B2 Key ID (or set env B2_APPLICATION_KEY_ID)")
+    check_b2_parser.add_argument("--b2-key", help="B2 App Key (or set env B2_APPLICATION_KEY)")
+    check_b2_parser.add_argument("--bucket", help="B2 Bucket Name (or set env B2_BUCKET_NAME)")
+
+
     # To handle the case where the script is called with no arguments
     if len(sys.argv) == 1:
         banner()
@@ -137,6 +145,12 @@ def main():
         if args.search_dir:
             sys.argv.extend(["--search-dir", args.search_dir])
         list_backups_main()
+    elif args.command == "check-b2":
+        sys.argv = ["geminiai-check-b2"]
+        if args.bucket: sys.argv.extend(["--bucket", args.bucket])
+        if args.b2_id: sys.argv.extend(["--b2-id", args.b2_id])
+        if args.b2_key: sys.argv.extend(["--b2-key", args.b2_key])
+        check_b2_main()
     elif args.login:
         do_login()
     elif args.logout:
