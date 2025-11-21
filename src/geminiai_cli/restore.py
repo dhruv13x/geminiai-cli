@@ -64,29 +64,34 @@ def parse_timestamp_from_name(name: str) -> Optional[time.struct_time]:
     except Exception:
         return None
 
-def find_oldest_backup(search_dir: str) -> Optional[str]:
+def find_oldest_archive_backup(search_dir: str) -> Optional[str]:
     """
-    Search search_dir for directories matching timestamp pattern and return
-    full path of the oldest backup (earliest timestamp). If none found, return None.
+    Search search_dir for backup archives (*.gemini.tar.gz) matching the
+    timestamp pattern and return the full path of the oldest backup (earliest
+    timestamp). If none found, return None.
     """
     candidates: list[Tuple[time.struct_time, str]] = []
     try:
         for entry in os.listdir(search_dir):
-            full = os.path.join(search_dir, entry)
-            if not os.path.isdir(full):
+            full_path = os.path.join(search_dir, entry)
+            # We are now looking for archive files, not directories
+            if not (os.path.isfile(full_path) and entry.endswith(".gemini.tar.gz")):
                 continue
+
+            # The name for parsing is the filename itself
             ts = parse_timestamp_from_name(entry)
             if ts:
-                candidates.append((ts, full))
+                candidates.append((ts, full_path))
     except FileNotFoundError:
         return None
 
     if not candidates:
         return None
 
-    # sort by timestamp struct_time ascending (earliest first)
+    # Sort by timestamp struct_time ascending (earliest first)
     candidates.sort(key=lambda x: time.mktime(x[0]))
     return candidates[0][1]
+
 
 def extract_archive(archive_path: str, extract_to: str):
     os.makedirs(extract_to, exist_ok=True)
@@ -95,9 +100,9 @@ def extract_archive(archive_path: str, extract_to: str):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--from-dir", help="Directory backup to restore from (preferred)")
+    p.add_argument("--from-dir", help="Directory backup to restore from (legacy, archive is preferred)")
     p.add_argument("--from-archive", help="Tar.gz archive to restore from")
-    p.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for timestamped backups when no --from-dir (default /root/geminiai_backups)")
+    p.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for timestamped backups when no source is specified (default: /root/geminiai_backups)")
     p.add_argument("--dest", default="~/.gemini", help="Destination (default ~/.gemini)")
     p.add_argument("--force", action="store_true", help="Allow destructive replace without keeping .bak")
     p.add_argument("--dry-run", action="store_true", help="Do a dry run without destructive actions")
@@ -107,28 +112,29 @@ def main():
     ts_now = time.strftime("%Y%m%d-%H%M%S")
 
     chosen_src: Optional[str] = None
-    from_archive = None
+    from_archive: Optional[str] = None
 
     if args.from_dir:
         chosen_src = os.path.abspath(os.path.expanduser(args.from_dir))
         if not os.path.exists(chosen_src):
-            print("Specified --from-dir not found:", chosen_src)
+            print(f"Specified --from-dir not found: {chosen_src}")
             sys.exit(1)
     elif args.from_archive:
         from_archive = os.path.abspath(os.path.expanduser(args.from_archive))
         if not os.path.exists(from_archive):
-            print("Specified --from-archive not found:", from_archive)
+            print(f"Specified --from-archive not found: {from_archive}")
             sys.exit(1)
     else:
-        # auto-discover oldest timestamped backup in search_dir
+        # Auto-discover oldest timestamped *archive* in search_dir
         sd = os.path.abspath(os.path.expanduser(args.search_dir))
-        print(f"Searching for timestamped backups in: {sd}")
-        oldest = find_oldest_backup(sd)
-        if not oldest:
-            print("No timestamped backups found in", sd)
+        print(f"Searching for oldest backup archive in: {sd}")
+        oldest_archive = find_oldest_archive_backup(sd)
+        if not oldest_archive:
+            print(f"No timestamped backup archives (*.gemini.tar.gz) found in {sd}")
             sys.exit(1)
-        chosen_src = oldest
-        print("Auto-selected oldest backup:", chosen_src)
+        
+        from_archive = oldest_archive
+        print(f"Auto-selected oldest backup archive: {from_archive}")
 
     lockfd = acquire_lock()
     try:

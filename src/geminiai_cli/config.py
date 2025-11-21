@@ -11,4 +11,4 @@ NEON_RED     = "\033[91;1m"
 RESET        = "\033[0m"
 
 LOGIN_URL_PATH = "/sdcard/tools/login_url.txt"
-TIMESTAMPED_DIR_REGEX = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{6})-.+\.gemini$")
+TIMESTAMPED_DIR_REGEX = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{6})-.+\.gemini(\.tar\.gz)?$")
