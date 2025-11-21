@@ -10,6 +10,7 @@ import shutil           # <<<< ADDED
 from .ui import banner, cprint
 from .utils import run, read_file
 from .config import *
+from .reset_helpers import run_cmd_safe
 
 # Improved do_login
 def do_login(retries: int = 2, wait_between: float = 0.8):
