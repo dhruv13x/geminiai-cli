@@ -10,7 +10,7 @@ Features:
  - Flexible capture: accepts piped text, argument text, or interactive paste
 
 Usage (examples):
-  geminiai --capture-reset "Access resets at 11:53 AM UTC dhruv@gmail.com"
+  geminiai --capture-reset "Access resets at 11:53 AM UTC dhruv13x@gmail.com"
   echo "Access resets at 11:53 AM UTC" | geminiai --capture-reset
   geminiai --list-resets
   geminiai --next-reset               # shows next upcoming reset across all accounts

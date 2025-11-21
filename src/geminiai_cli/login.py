@@ -4,12 +4,12 @@ import os
 import re
 import time
 from typing import Tuple
-import subprocess        # <<<< ADDED
-import shutil           # <<<< ADDED
+import subprocess
+import shutil
 
 from .ui import banner, cprint
 from .utils import run, read_file
-from .config import *
+from .config import LOGIN_URL_PATH, NEON_YELLOW, NEON_CYAN, NEON_MAGENTA, NEON_GREEN, NEON_RED, RESET
 from .reset_helpers import run_cmd_safe
 
 # Improved do_login

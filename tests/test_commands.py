@@ -1,87 +1,103 @@
 import pytest
 from unittest.mock import patch, mock_open, MagicMock
-# import commands individually as geminiai_cli.commands does not exist
+import os
+import sys
+
+# Import commands individually
 from geminiai_cli.login import do_login
 from geminiai_cli.logout import do_logout
 from geminiai_cli.update import do_update, do_check_update
+from geminiai_cli.utils import run, read_file
+from geminiai_cli.reset_helpers import run_cmd_safe, save_reset_time_from_output # Ensure run_cmd_safe is imported correctly
+from geminiai_cli.config import LOGIN_URL_PATH
 
-@patch("geminiai_cli.login.run_cmd_safe")
-@patch("geminiai_cli.login.read_file", return_value="verification code")
+# --- Tests for do_login ---
+
+@patch("geminiai_cli.reset_helpers.run_cmd_safe")
+@patch("geminiai_cli.utils.read_file", return_value="verification code")
 def test_do_login_second_run(mock_read_file, mock_run_cmd_safe):
     # Mock run_cmd_safe to return success
     mock_run_cmd_safe.return_value = (0, "", "")
     do_login()
     # login.py calls run_cmd_safe with "gemini 2> {LOGIN_URL_PATH}"
-    # check arguments
-    assert mock_run_cmd_safe.called
+    # assert that run_cmd_safe was called, and optionally check arguments
+    mock_run_cmd_safe.assert_called_with(f"gemini 2> {LOGIN_URL_PATH}", timeout=30, capture=True)
+    assert mock_run_cmd_safe.call_count == 1
 
-@patch("geminiai_cli.login.run_cmd_safe")
-@patch("geminiai_cli.login.read_file", side_effect=Exception("file not found"))
+@patch("geminiai_cli.reset_helpers.run_cmd_safe")
+@patch("geminiai_cli.utils.read_file", side_effect=Exception("file not found"))
 def test_do_login_first_run(mock_read_file, mock_run_cmd_safe):
     # Simulates first run where "choose a login method" is found in output
     mock_run_cmd_safe.side_effect = [
         (0, "Choose a login method", ""), # First attempt
         (0, "", ""), # Selection
-        (0, "https://example.com", "") # Second attempt
+        (0, "https://example.com", "") # Second attempt after sending ENTER
     ]
     do_login(retries=1)
-    assert mock_run_cmd_safe.call_count >= 2
+    # Expect 3 calls to run_cmd_safe for the first-run flow
+    assert mock_run_cmd_safe.call_count >= 2 # At least 2, can be 3 depending on logic
+    # Check that it tried to send ENTER
+    assert any("printf \"\\n\" | gemini" in call[0][0] for call in mock_run_cmd_safe.call_args_list)
 
-@patch("geminiai_cli.login.run_cmd_safe")
-@patch("geminiai_cli.login.read_file", return_value="")
+
+@patch("geminiai_cli.reset_helpers.run_cmd_safe")
+@patch("geminiai_cli.utils.read_file", return_value="")
 def test_do_login_fail(mock_read_file, mock_run_cmd_safe):
     # Fail all attempts
     mock_run_cmd_safe.return_value = (1, "error", "error")
-    do_login(retries=1)
+    # Redirect stderr to suppress output during test
+    with patch('sys.stderr', new_callable=MagicMock):
+        do_login(retries=1)
     assert mock_run_cmd_safe.called
 
-@patch("geminiai_cli.login.run_cmd_safe")
-@patch("geminiai_cli.login.read_file", side_effect=Exception("File read error"))
+@patch("geminiai_cli.reset_helpers.run_cmd_safe")
+@patch("geminiai_cli.utils.read_file", side_effect=Exception("File read error"))
 def test_do_login_file_read_error(mock_read_file, mock_run_cmd_safe):
     mock_run_cmd_safe.return_value = (0, "output", "error")
-    do_login(retries=1)
+    with patch('sys.stderr', new_callable=MagicMock):
+        do_login(retries=1)
     assert mock_run_cmd_safe.called
 
-@patch("geminiai_cli.login.run_cmd_safe")
-@patch("geminiai_cli.login.read_file", return_value="")
+@patch("geminiai_cli.reset_helpers.run_cmd_safe")
+@patch("geminiai_cli.utils.read_file", return_value="")
 def test_do_login_success_with_code(mock_read_file, mock_run_cmd_safe):
     mock_run_cmd_safe.return_value = (0, "Verification code: ABC-123", "")
     do_login(retries=1)
     assert mock_run_cmd_safe.called
 
-import os
+# --- Tests for do_logout ---
 
 @patch("os.path.exists", return_value=True)
-@patch("geminiai_cli.logout.run")
+@patch("geminiai_cli.utils.run")
 def test_do_logout_exists(mock_run, mock_exists):
     do_logout()
     mock_run.assert_any_call(f"rm -rf {os.path.expanduser('~/.gemini')}")
+    mock_run.assert_any_call("ls -d ~/.gemini || echo '[OK] Logout complete.'")
 
 @patch("os.path.exists", return_value=False)
-@patch("geminiai_cli.logout.run")
+@patch("geminiai_cli.utils.run")
 def test_do_logout_not_exists(mock_run, mock_exists):
     do_logout()
-    assert mock_run.call_count == 1
+    mock_run.assert_any_call("ls -d ~/.gemini || echo '[OK] Logout complete.'")
+    # Should not call rm -rf if directory doesn't exist
+    assert not any("rm -rf" in call[0][0] for call in mock_run.call_args_list)
+
+# --- Tests for do_update and do_check_update ---
 
 @patch("geminiai_cli.update.run_cmd_safe")
 def test_do_update(mock_run_cmd_safe):
     mock_run_cmd_safe.return_value = (0, "ok", "")
     do_update()
-    # check calls to run_cmd_safe
     args_list = [c[0][0] for c in mock_run_cmd_safe.call_args_list]
     assert "rm -f /usr/bin/gemini" in args_list
     assert "npm install -g @google/gemini-cli" in args_list
 
 @patch("geminiai_cli.update.run_cmd_safe")
 def test_do_check_update_latest(mock_run_cmd_safe):
-    # Mock responses for:
-    # 1. command -v gemini -> /usr/bin/gemini
-    # 2. gemini --version -> 1.0.0
-    # 3. npm view ... -> 1.0.0
     mock_run_cmd_safe.side_effect = [
-        (0, "/usr/bin/gemini", ""),
-        (0, "1.0.0", ""),
-        (0, "1.0.0", "")
+        (0, "/usr/bin/gemini", ""), # command -v gemini
+        (0, "1.0.0", ""),            # gemini --version
+        (0, "1.0.0", "")             # npm view @google/gemini-cli version
     ]
     do_check_update()
 
@@ -109,14 +125,14 @@ def test_do_check_update_available_yes(mock_do_update, mock_input, mock_run_cmd_
 
 @patch("geminiai_cli.update.run_cmd_safe")
 def test_do_check_update_no_gemini(mock_run_cmd_safe):
-    mock_run_cmd_safe.return_value = (1, "", "")
+    mock_run_cmd_safe.return_value = (1, "", "") # command -v gemini fails
     do_check_update()
 
 @patch("geminiai_cli.update.run_cmd_safe")
 def test_do_check_update_version_fail(mock_run_cmd_safe):
     mock_run_cmd_safe.side_effect = [
-        (0, "/usr/bin/gemini", ""),
-        (1, "", "error")
+        (0, "/usr/bin/gemini", ""), # command -v gemini
+        (1, "", "error")             # gemini --version fails
     ]
     do_check_update()
 
@@ -124,16 +140,18 @@ def test_do_check_update_version_fail(mock_run_cmd_safe):
 @patch("builtins.input", return_value="n")
 def test_do_check_update_npm_fail(mock_input, mock_run_cmd_safe):
     mock_run_cmd_safe.side_effect = [
-        (0, "/usr/bin/gemini", ""),
-        (0, "1.0.0", ""),
-        (1, "", "error")
+        (0, "/usr/bin/gemini", ""), # command -v gemini
+        (0, "1.0.0", ""),            # gemini --version
+        (1, "", "error")             # npm view fails
     ]
     do_check_update()
 
 @patch("geminiai_cli.update.run_cmd_safe")
 def test_do_update_fail(mock_run_cmd_safe):
     mock_run_cmd_safe.return_value = (1, "error", "error")
-    do_update()
+    # Redirect stderr to suppress output during test
+    with patch('sys.stderr', new_callable=MagicMock):
+        do_update()
 
 @patch("geminiai_cli.update.run_cmd_safe")
 def test_do_update_retry_success(mock_run_cmd_safe):
@@ -159,4 +177,6 @@ def test_do_update_retry_fail(mock_run_cmd_safe):
         (1, "error", ""), # retry fail
         (0, "/usr/bin", "") # npm bin
     ]
-    do_update()
+    # Redirect stderr to suppress output during test
+    with patch('sys.stderr', new_callable=MagicMock):
+        do_update()
