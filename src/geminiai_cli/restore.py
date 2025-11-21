@@ -135,7 +135,7 @@ def main():
         print("Fetching file list from B2...")
         # b2sdk list_file_versions returns a generator of FileVersion objects
         all_files = []
-        for file_version in b2.list_backups():
+        for file_version, _ in b2.list_backups():
             if file_version.file_name.endswith(".gemini.tar.gz"):
                 ts = parse_timestamp_from_name(file_version.file_name)
                 if ts:

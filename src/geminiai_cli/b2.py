@@ -42,15 +42,14 @@ class B2Manager:
             cprint(NEON_RED, f"[CLOUD] Upload failed: {e}")
 
     def list_backups(self):
-        """Returns a list of file objects (id, file_name, upload_timestamp)."""
-        return self.bucket.list_file_versions(file_name_prefix='', max_file_count=1000)
+        """Returns a generator of file versions."""
+        return self.bucket.ls(recursive=True)
 
     def download(self, remote_name, local_path):
         cprint(NEON_YELLOW, f"[CLOUD] Downloading {remote_name} -> {local_path}...")
         try:
-            # B2 download_file_by_name returns a DownloadedFile, which needs to be saved
-            file_version = self.bucket.get_file_info_by_name(remote_name)
-            self.b2_api.download_file_by_id(file_version.id_, local_path)
+            download_dest = self.bucket.download_file_by_name(remote_name)
+            download_dest.save_to(local_path)
 
             cprint(NEON_GREEN, "[CLOUD] Download successful!")
         except Exception as e:
