@@ -120,10 +120,23 @@ def main():
             print(f"Specified --from-dir not found: {chosen_src}")
             sys.exit(1)
     elif args.from_archive:
-        from_archive = os.path.abspath(os.path.expanduser(args.from_archive))
-        if not os.path.exists(from_archive):
-            print(f"Specified --from-archive not found: {from_archive}")
-            sys.exit(1)
+        # First, try the path as provided by the user
+        user_path = os.path.abspath(os.path.expanduser(args.from_archive))
+        
+        # If not found, try looking in the default search directory
+        if not os.path.exists(user_path):
+            search_dir = os.path.abspath(os.path.expanduser(args.search_dir))
+            basename = os.path.basename(user_path)
+            path_in_search_dir = os.path.join(search_dir, basename)
+            
+            if os.path.exists(path_in_search_dir):
+                from_archive = path_in_search_dir
+                print(f"Found archive in default backup directory: {from_archive}")
+            else:
+                print(f"Specified --from-archive not found at '{user_path}' or in search directory '{search_dir}'")
+                sys.exit(1)
+        else:
+            from_archive = user_path
     else:
         # Auto-discover oldest timestamped *archive* in search_dir
         sd = os.path.abspath(os.path.expanduser(args.search_dir))
