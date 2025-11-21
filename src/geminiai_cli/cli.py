@@ -16,6 +16,7 @@ from .config import NEON_YELLOW, NEON_CYAN
 from .backup import main as backup_main
 from .restore import main as restore_main
 from .integrity import main as integrity_main
+from .list_backups import main as list_backups_main
 
 def main():
     parser = argparse.ArgumentParser(description="Gemini CLI Automation Script (Neon Theme)")
@@ -70,6 +71,10 @@ def main():
     integrity_parser.add_argument("--src", default="~/.gemini", help="Source directory for integrity check (default: ~/.gemini)")
     integrity_parser.add_argument("--search-dir", default="/root/geminiai_backups", help="Backup directory for integrity check (default: /root/geminiai_backups)")
 
+    # List backups command
+    list_backups_parser = subparsers.add_parser("list-backups", help="List available backups.")
+    list_backups_parser.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for backups (default /root/geminiai_backups)")
+
     # To handle the case where the script is called with no arguments
     if len(sys.argv) == 1:
         banner()
@@ -111,6 +116,11 @@ def main():
         if args.search_dir:
             sys.argv.extend(["--search-dir", args.search_dir])
         integrity_main()
+    elif args.command == "list-backups":
+        sys.argv = ["geminiai-list-backups"]
+        if args.search_dir:
+            sys.argv.extend(["--search-dir", args.search_dir])
+        list_backups_main()
     elif args.login:
         do_login()
     elif args.logout:
