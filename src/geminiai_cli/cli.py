@@ -56,6 +56,10 @@ def main():
     backup_parser.add_argument("--archive-dir", default="/root/geminiai_backups", help="Directory to store tar.gz archives (default /root/geminiai_backups)")
     backup_parser.add_argument("--dest-dir-parent", default="/root/geminiai_backups", help="Parent directory where timestamped backups are stored (default /root/geminiai_backups)")
     backup_parser.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
+    backup_parser.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
+    backup_parser.add_argument("--bucket", help="B2 Bucket Name")
+    backup_parser.add_argument("--b2-id", help="B2 Key ID (or set env B2_APPLICATION_KEY_ID)")
+    backup_parser.add_argument("--b2-key", help="B2 App Key (or set env B2_APPLICATION_KEY)")
 
     # Restore command
     restore_parser = subparsers.add_parser("restore", help="Restore Gemini configuration from a backup.")
@@ -65,6 +69,10 @@ def main():
     restore_parser.add_argument("--dest", default="~/.gemini", help="Destination (default ~/.gemini)")
     restore_parser.add_argument("--force", action="store_true", help="Allow destructive replace without keeping .bak")
     restore_parser.add_argument("--dry-run", action="store_true", help="Do a dry run without destructive actions")
+    restore_parser.add_argument("--cloud", action="store_true", help="Restore from Cloud (B2)")
+    restore_parser.add_argument("--bucket", help="B2 Bucket Name")
+    restore_parser.add_argument("--b2-id", help="B2 Key ID")
+    restore_parser.add_argument("--b2-key", help="B2 App Key")
 
     # Integrity check command
     integrity_parser = subparsers.add_parser("check-integrity", help="Check integrity of current configuration against the latest backup.")
@@ -93,6 +101,10 @@ def main():
             sys.argv.extend(["--dest-dir-parent", args.dest_dir_parent])
         if args.dry_run:
             sys.argv.append("--dry-run")
+        if args.cloud: sys.argv.append("--cloud")
+        if args.bucket: sys.argv.extend(["--bucket", args.bucket])
+        if args.b2_id: sys.argv.extend(["--b2-id", args.b2_id])
+        if args.b2_key: sys.argv.extend(["--b2-key", args.b2_key])
         backup_main()
     elif args.command == "restore":
         sys.argv = ["geminiai-restore"]
@@ -108,6 +120,10 @@ def main():
             sys.argv.append("--force")
         if args.dry_run:
             sys.argv.append("--dry-run")
+        if args.cloud: sys.argv.append("--cloud")
+        if args.bucket: sys.argv.extend(["--bucket", args.bucket])
+        if args.b2_id: sys.argv.extend(["--b2-id", args.b2_id])
+        if args.b2_key: sys.argv.extend(["--b2-key", args.b2_key])
         restore_main()
     elif args.command == "check-integrity":
         sys.argv = ["geminiai-check-integrity"]

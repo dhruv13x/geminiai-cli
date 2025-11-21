@@ -27,6 +27,7 @@ import time
 import tempfile
 from typing import Optional
 from .config import TIMESTAMPED_DIR_REGEX
+from .b2 import B2Manager
 
 LOCKFILE = "/var/lock/gemini-backup.lock"
 
@@ -99,6 +100,10 @@ def main():
     p.add_argument("--archive-dir", default="/root/geminiai_backups", help="Directory to store tar.gz archives")
     p.add_argument("--dest-dir-parent", default="/root/geminiai_backups", help="Parent directory where timestamped backups are stored")
     p.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
+    p.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
+    p.add_argument("--bucket", help="B2 Bucket Name")
+    p.add_argument("--b2-id", help="B2 Key ID (or set env B2_APPLICATION_KEY_ID)")
+    p.add_argument("--b2-key", help="B2 App Key (or set env B2_APPLICATION_KEY)")
     args = p.parse_args()
 
     src = os.path.abspath(os.path.expanduser(args.src))
@@ -185,6 +190,22 @@ def main():
                 print("No active email available; skipping latest symlink.")
         else:
             print("DRY RUN: would os.replace(tmp_dest, dest) and update symlink if available")
+        
+        # --- NEW CODE BLOCK: CLOUD UPLOAD ---
+        if args.cloud:
+            # Resolve credentials (CLI arg > Env Var)
+            key_id = args.b2_id or os.environ.get("B2_APPLICATION_KEY_ID")
+            app_key = args.b2_key or os.environ.get("B2_APPLICATION_KEY")
+            bucket = args.bucket or os.environ.get("B2_BUCKET_NAME")
+
+            if not (key_id and app_key and bucket):
+                print("[ERROR] Cloud upload requested but credentials missing.")
+                print("Provide --b2-id, --b2-key, --bucket OR set env vars.")
+            else:
+                b2 = B2Manager(key_id, app_key, bucket)
+                # Upload the tar.gz we just created
+                b2.upload(archive_path, remote_name=os.path.basename(archive_path))
+        # ------------------------------------
 
         print("Backup complete.")
     finally:
