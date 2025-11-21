@@ -18,10 +18,10 @@ def do_update():
     cprint(NEON_YELLOW, "[INFO] Updating Gemini CLI...")
 
     # Remove old symlink (ignore errors)
-    run_cmd_safe("rm -f /usr/bin/gemini", timeout=5)
+    run_cmd_safe("rm -f /usr/bin/gemini", timeout=5, detect_reset_time=False)
 
     # Query npm global root
-    rc, npm_root, npm_err = run_cmd_safe("npm root -g", timeout=8, capture=True)
+    rc, npm_root, npm_err = run_cmd_safe("npm root -g", timeout=8, capture=True, detect_reset_time=False)
     npm_root = (npm_root or "").strip()
     if rc != 0 or not npm_root:
         cprint(NEON_YELLOW, f"[WARN] Could not determine npm global root (rc={rc}). Falling back to /usr/lib/node_modules")
@@ -40,7 +40,7 @@ def do_update():
 
     # Show npm root contents for debugging — non-fatal
     if os.path.exists(npm_root):
-        rc_ls, ls_out, ls_err = run_cmd_safe(f"ls -la {npm_root}", timeout=6, capture=True)
+        rc_ls, ls_out, ls_err = run_cmd_safe(f"ls -la {npm_root}", timeout=6, capture=True, detect_reset_time=False)
         if rc_ls == 0:
             cprint(NEON_GREEN, f"[INFO] npm root contents:\n{ls_out}")
         else:
@@ -48,7 +48,7 @@ def do_update():
 
     # Install / update gemini CLI
     cprint(NEON_YELLOW, "[INFO] Running npm install -g @google/gemini-cli ...")
-    rc_install, out_install, err_install = run_cmd_safe("npm install -g @google/gemini-cli", timeout=300, capture=True)
+    rc_install, out_install, err_install = run_cmd_safe("npm install -g @google/gemini-cli", timeout=300, capture=True, detect_reset_time=False)
     
     if rc_install == 0:
         cprint(NEON_GREEN, "\n[OK] Update complete. Installed version (npm output snippet):")
@@ -59,14 +59,14 @@ def do_update():
         cprint(NEON_RED, f"\n[ERROR] npm install failed (rc={rc_install}).")
         cprint(NEON_RED, (err_install or out_install or "No output."))
         cprint(NEON_YELLOW, "[INFO] Trying with --unsafe-perm ...")
-        rc2, out2, err2 = run_cmd_safe("npm install -g --unsafe-perm @google/gemini-cli", timeout=300, capture=True)
+        rc2, out2, err2 = run_cmd_safe("npm install -g --unsafe-perm @google/gemini-cli", timeout=300, capture=True, detect_reset_time=False)
         if rc2 == 0:
             cprint(NEON_GREEN, "[OK] Update succeeded with --unsafe-perm.")
         else:
             cprint(NEON_RED, "[ERROR] Update failed even with --unsafe-perm.")
             cprint(NEON_RED, (err2 or out2 or "No additional output."))
             # diagnostic: show npm bin and suggest symlink
-            rc_bin, npm_bin, _ = run_cmd_safe("npm bin -g", timeout=6, capture=True)
+            rc_bin, npm_bin, _ = run_cmd_safe("npm bin -g", timeout=6, capture=True, detect_reset_time=False)
             npm_bin = (npm_bin or "").strip()
             if npm_bin:
                 cprint(NEON_YELLOW, f"[INFO] npm global bin: {npm_bin}")
@@ -79,7 +79,7 @@ def do_check_update():
     cprint(NEON_YELLOW, "[INFO] Checking Gemini CLI version...")
 
     # Quick check: is gemini on PATH?
-    rc_path, gem_path, _ = run_cmd_safe("command -v gemini", timeout=3, capture=True)
+    rc_path, gem_path, _ = run_cmd_safe("command -v gemini", timeout=3, capture=True, detect_reset_time=False)
     gem_path = (gem_path or "").strip()
     if rc_path != 0 or not gem_path:
         cprint(NEON_RED, "[ERROR] 'gemini' not found on PATH. Is it installed?")
@@ -90,7 +90,7 @@ def do_check_update():
 
     # Run version with stdin redirected from /dev/null to avoid interactive hangs,
     # and give it a generous timeout for slow environments.
-    rc_inst, installed, err_inst = run_cmd_safe("gemini --version < /dev/null", timeout=30, capture=True)
+    rc_inst, installed, err_inst = run_cmd_safe("gemini --version < /dev/null", timeout=30, capture=True, detect_reset_time=False)
     installed = (installed or "").strip()
     if rc_inst != 0 or not installed:
         cprint(NEON_RED, "[ERROR] Gemini is installed but `gemini --version` failed or timed out.")
@@ -99,7 +99,7 @@ def do_check_update():
         return
 
     # Get latest package version from npm
-    rc_latest, latest, err_latest = run_cmd_safe("npm view @google/gemini-cli version", timeout=10, capture=True)
+    rc_latest, latest, err_latest = run_cmd_safe("npm view @google/gemini-cli version", timeout=10, capture=True, detect_reset_time=False)
     latest = (latest or "").strip()
     if rc_latest != 0 or not latest:
         cprint(NEON_YELLOW, "[WARN] Could not determine latest version via npm view.")

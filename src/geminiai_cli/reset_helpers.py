@@ -35,7 +35,7 @@ STORE_FILE = os.path.expanduser("~/.gemini_resets.json")
 # -------------------------
 # run_cmd_safe (auto-capture)
 # -------------------------
-def run_cmd_safe(cmd: str, timeout: int = 30, capture: bool = True) -> Tuple[int, str, str]:
+def run_cmd_safe(cmd: str, timeout: int = 30, capture: bool = True, detect_reset_time: bool = True) -> Tuple[int, str, str]:
     """
     Run shell command with timeout. Returns (rc, stdout, stderr).
     Automatically detects Gemini rate-limit messages and saves reset time.
@@ -46,11 +46,12 @@ def run_cmd_safe(cmd: str, timeout: int = 30, capture: bool = True) -> Tuple[int
         err = proc.stderr or ""
 
         # Auto-detect and save reset time from combined output
-        try:
-            save_reset_time_from_output(out + err)
-        except Exception:
-            # never fail the caller because of our detection
-            pass
+        if detect_reset_time:
+            try:
+                save_reset_time_from_output(out + err)
+            except Exception:
+                # never fail the caller because of our detection
+                pass
 
         return proc.returncode, out, err
 
@@ -63,19 +64,21 @@ def run_cmd_safe(cmd: str, timeout: int = 30, capture: bool = True) -> Tuple[int
             err = err.decode(errors="ignore")
 
         # try to capture reset time even on timeout
-        try:
-            save_reset_time_from_output(out + err)
-        except Exception:
-            pass
+        if detect_reset_time:
+            try:
+                save_reset_time_from_output(out + err)
+            except Exception:
+                pass
 
         return 124, out, err
 
     except Exception as e:
         # capture exception text as well
-        try:
-            save_reset_time_from_output(str(e))
-        except Exception:
-            pass
+        if detect_reset_time:
+            try:
+                save_reset_time_from_output(str(e))
+            except Exception:
+                pass
         return 1, "", str(e)
 
 # ------------------------
