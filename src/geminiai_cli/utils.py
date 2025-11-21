@@ -6,12 +6,7 @@ import sys
 from .ui import cprint
 from .config import NEON_RED
 
-def run_capture(cmd):
-    """Run a shell command and capture output."""
-    try:
-        return subprocess.check_output(cmd, shell=True, text=True).strip()
-    except subprocess.CalledProcessError:
-        return None
+
 
 def run(cmd):
     """Run a shell command and stream output."""
