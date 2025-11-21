@@ -117,6 +117,7 @@ def main():
 
     chosen_src: Optional[str] = None
     from_archive: Optional[str] = None
+    temp_download_path: Optional[str] = None # Initialize for cloud downloads
 
     # --- NEW CODE BLOCK: CLOUD DISCOVERY ---
     if args.cloud:
@@ -293,6 +294,12 @@ def main():
                     shutil.rmtree(work_tmp)
                 except Exception:
                     pass
+        # ADD THIS:
+        if temp_download_path and os.path.exists(temp_download_path):
+            try:
+                os.remove(temp_download_path)
+            except Exception:
+                pass
     finally:
         try:
             fcntl.flock(lockfd, fcntl.LOCK_UN)
