@@ -29,9 +29,9 @@ import tempfile
 import time
 from typing import Optional, Tuple
 
+from .config import TIMESTAMPED_DIR_REGEX
+...
 LOCKFILE = "/var/lock/gemini-backup.lock"
-
-TIMESTAMPED_DIR_REGEX = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{6})-.+\.gemini$")  # captures timestamp prefix
 
 def acquire_lock(path: str = LOCKFILE):
     fd = open(path, "w+")
@@ -97,7 +97,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--from-dir", help="Directory backup to restore from (preferred)")
     p.add_argument("--from-archive", help="Tar.gz archive to restore from")
-    p.add_argument("--search-dir", default="/root", help="Directory to search for timestamped backups when no --from-dir (default /root)")
+    p.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for timestamped backups when no --from-dir (default /root/geminiai_backups)")
     p.add_argument("--dest", default="~/.gemini", help="Destination (default ~/.gemini)")
     p.add_argument("--force", action="store_true", help="Allow destructive replace without keeping .bak")
     p.add_argument("--dry-run", action="store_true", help="Do a dry run without destructive actions")

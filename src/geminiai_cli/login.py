@@ -54,7 +54,7 @@ def do_login(retries: int = 2, wait_between: float = 0.8):
             rc2, out2, err2 = run_cmd_safe(f'printf "\\n" | gemini 2> {LOGIN_URL_PATH}', timeout=15, capture=True)
             # after selecting, run gemini again to capture the URL
             time.sleep(wait_between)
-            rc3, out3, err3 = run_cmd_safe(f"gemini 2> {LOGIN_URL_PATH}", timeout=30, capture=True)
+            _, out3, err3 = run_cmd_safe(f"gemini 2> {LOGIN_URL_PATH}", timeout=30, capture=True)
             try:
                 text = read_file(LOGIN_URL_PATH)
             except Exception:

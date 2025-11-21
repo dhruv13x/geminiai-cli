@@ -26,6 +26,7 @@ import sys
 import time
 import tempfile
 from typing import Optional
+from .config import TIMESTAMPED_DIR_REGEX
 
 LOCKFILE = "/var/lock/gemini-backup.lock"
 
@@ -95,8 +96,8 @@ def atomic_symlink(target: str, link_name: str):
 def main():
     p = argparse.ArgumentParser(description="Safe timestamped backup for ~/.gemini (name: YYYY-MM-DD_HHMMSS-email.gemini)")
     p.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
-    p.add_argument("--archive-dir", default="/root/backups", help="Directory to store tar.gz archives")
-    p.add_argument("--dest-dir-parent", default="/root", help="Parent directory where timestamped backups are stored")
+    p.add_argument("--archive-dir", default="/root/geminiai_backups", help="Directory to store tar.gz archives")
+    p.add_argument("--dest-dir-parent", default="/root/geminiai_backups", help="Parent directory where timestamped backups are stored")
     p.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
     args = p.parse_args()
 
@@ -116,6 +117,10 @@ def main():
     else:
         dest_basename = f"{ts}-gemini-backup.gemini"
         print("Warning: could not read active email from google_accounts.json; using fallback name:", dest_basename)
+
+    if not TIMESTAMPED_DIR_REGEX.match(dest_basename):
+        print(f"Error: Generated backup name '{dest_basename}' does not match the required pattern.")
+        sys.exit(1)
 
     dest = os.path.join(dest_parent, dest_basename)
     archive_path = os.path.join(archive_dir, f"{dest_basename}.tar.gz")
