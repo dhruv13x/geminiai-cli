@@ -83,6 +83,10 @@ def main():
     # List backups command
     list_backups_parser = subparsers.add_parser("list-backups", help="List available backups.")
     list_backups_parser.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for backups (default /root/geminiai_backups)")
+    list_backups_parser.add_argument("--cloud", action="store_true", help="List backups from Cloud (B2)")
+    list_backups_parser.add_argument("--bucket", help="B2 Bucket Name")
+    list_backups_parser.add_argument("--b2-id", help="B2 Key ID")
+    list_backups_parser.add_argument("--b2-key", help="B2 App Key")
 
     # Check B2 command
     check_b2_parser = subparsers.add_parser("check-b2", help="Verify Backblaze B2 credentials.")
@@ -144,6 +148,10 @@ def main():
         sys.argv = ["geminiai-list-backups"]
         if args.search_dir:
             sys.argv.extend(["--search-dir", args.search_dir])
+        if args.cloud: sys.argv.append("--cloud")
+        if args.bucket: sys.argv.extend(["--bucket", args.bucket])
+        if args.b2_id: sys.argv.extend(["--b2-id", args.b2_id])
+        if args.b2_key: sys.argv.extend(["--b2-key", args.b2_key])
         list_backups_main()
     elif args.command == "check-b2":
         sys.argv = ["geminiai-check-b2"]
