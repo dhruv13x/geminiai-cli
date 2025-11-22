@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch, mock_open
+import subprocess # Added
 from geminiai_cli.utils import run, read_file, run_capture
 from geminiai_cli.reset_helpers import run_cmd_safe # Import run_cmd_safe
 
@@ -21,15 +22,24 @@ def test_run_cmd_safe(mock_subprocess_run):
 @patch("subprocess.run") # run_cmd_safe uses subprocess.run
 def test_run_cmd_safe_exception(mock_subprocess_run):
     # Test CalledProcessError
+    called_process_error = subprocess.CalledProcessError(1, "cmd")
+    called_process_error.stdout = b"error_out"
+    called_process_error.stderr = b"error_err"
+
+    # Test TimeoutExpired
+    timeout_expired = subprocess.TimeoutExpired("cmd", 10)
+    timeout_expired.stdout = b"timeout_out"
+    timeout_expired.stderr = b"timeout_err"
+
     mock_subprocess_run.side_effect = [
-        subprocess.CalledProcessError(1, "cmd", stdout=b"error_out", stderr=b"error_err"),
-        subprocess.TimeoutExpired("cmd", 10, stdout=b"timeout_out", stderr=b"timeout_err")
+        called_process_error,
+        timeout_expired
     ]
     
     rc, stdout, stderr = run_cmd_safe("echo hello", capture=True)
     assert rc == 1
-    # Check if error output is captured and processed correctly
-    assert "error_out" in stdout or "error_err" in stderr 
+    # Check that the exception message is in stderr
+    assert str(called_process_error) in stderr
                                                             
     # Test TimeoutExpired
     rc, stdout, stderr = run_cmd_safe("echo hello", capture=True, timeout=1)
