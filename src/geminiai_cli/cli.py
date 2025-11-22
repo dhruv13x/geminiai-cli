@@ -18,6 +18,7 @@ from .restore import main as restore_main
 from .integrity import main as integrity_main
 from .list_backups import main as list_backups_main
 from .check_b2 import main as check_b2_main
+from .sync import cloud_sync, local_sync
 
 def main():
     parser = argparse.ArgumentParser(description="Gemini CLI Automation Script (Neon Theme)")
@@ -94,6 +95,20 @@ def main():
     check_b2_parser.add_argument("--b2-key", help="B2 App Key (or set env B2_APPLICATION_KEY)")
     check_b2_parser.add_argument("--bucket", help="B2 Bucket Name (or set env B2_BUCKET_NAME)")
 
+    # Cloud Sync command
+    cloud_sync_parser = subparsers.add_parser("cloud-sync", help="Sync missing local backups to Cloud (B2).")
+    cloud_sync_parser.add_argument("--backup-dir", default="/root/geminiai_backups", help="Local backup directory (default /root/geminiai_backups)")
+    cloud_sync_parser.add_argument("--bucket", help="B2 Bucket Name")
+    cloud_sync_parser.add_argument("--b2-id", help="B2 Key ID")
+    cloud_sync_parser.add_argument("--b2-key", help="B2 App Key")
+
+    # Local Sync command
+    local_sync_parser = subparsers.add_parser("local-sync", help="Sync missing Cloud (B2) backups to local storage.")
+    local_sync_parser.add_argument("--backup-dir", default="/root/geminiai_backups", help="Local backup directory (default /root/geminiai_backups)")
+    local_sync_parser.add_argument("--bucket", help="B2 Bucket Name")
+    local_sync_parser.add_argument("--b2-id", help="B2 Key ID")
+    local_sync_parser.add_argument("--b2-key", help="B2 App Key")
+
 
     # To handle the case where the script is called with no arguments
     if len(sys.argv) == 1:
@@ -159,6 +174,10 @@ def main():
         if args.b2_id: sys.argv.extend(["--b2-id", args.b2_id])
         if args.b2_key: sys.argv.extend(["--b2-key", args.b2_key])
         check_b2_main()
+    elif args.command == "cloud-sync":
+        cloud_sync(args)
+    elif args.command == "local-sync":
+        local_sync(args)
     elif args.login:
         do_login()
     elif args.logout:

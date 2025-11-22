@@ -73,6 +73,13 @@ You need to provide your Backblaze B2 credentials. You can do this in two ways:
 - `geminiai restore --cloud`: Restore your configuration from the oldest backup archive stored in your B2 bucket.
 - `geminiai list-backups --cloud`: List available backups in your B2 bucket.
 
+#### Cloud Synchronization
+
+This feature ensures consistency between your local backup repository and your Backblaze B2 bucket by only adding missing files, without overwriting existing data.
+
+- `geminiai cloud-sync`: Uploads any local `.tar.gz` backup archives that are missing from your configured Backblaze B2 bucket.
+- `geminiai local-sync`: Downloads any `.tar.gz` backup archives from your Backblaze B2 bucket that are missing from your local backup directory.
+
 ## Usage Examples
 
 **1. Create a local backup:**
@@ -120,3 +127,18 @@ geminiai check-b2
 ```bash
 geminiai list-backups --cloud
 ```
+
+**8. Synchronize local backups to the cloud:**
+
+(Assuming environment variables are set)
+```bash
+geminiai cloud-sync
+```
+
+**9. Synchronize cloud backups to local storage:**
+
+(Assuming environment variables are set)
+```bash
+geminiai local-sync
+```
+
