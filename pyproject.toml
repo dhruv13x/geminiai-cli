@@ -46,11 +46,14 @@ addopts = [
     "-ra",
     "--tb=short",
     "--showlocals",
-    "--timeout=10",
+    "--timeout=30",
     "--durations=10",
-    "--cov=geminiai_cli",
+    "--import-mode=importlib",
+    "--cov=src/geminiai_cli",
+    "--cov-fail-under=97",
     "--cov-report=term-missing:skip-covered",
-    "--cov-fail-under=85",
+    "--cov-report=html",
+    "--cov-report=xml",
 ]
 
 # Coverage config
@@ -61,6 +64,6 @@ source = [
 ]
 
 [tool.coverage.report]
-fail_under = 85
+fail_under = 97
 show_missing = true
 skip_covered = true
