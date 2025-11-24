@@ -24,10 +24,6 @@ def test_get_active_session_malformed(mock_exists):
     mock_exists.return_value = True
     with patch("builtins.open", mock_open(read_data='{invalid_json}')):
         # json.load will raise JSONDecodeError
-        # We need to mock json.load explicitly if we want to simulate the error correctly 
-        # OR just rely on open returning data that causes json.load to fail.
-        # However, builtins.open returning string triggers json.load parsing.
-        # Let's verify get_active_session catches the error.
         with patch("json.load", side_effect=json.JSONDecodeError("msg", "doc", 0)):
              assert session.get_active_session() is None
 
@@ -50,7 +46,8 @@ def test_do_session_inactive(mock_cprint, mock_get_session):
     assert mock_cprint.call_count == 3 # Heading, Error, Hint
     assert "No active session" in mock_cprint.call_args_list[1][0][1]
 
-@patch("geminiai_cli.session.do_session")
+# Patch the symbol in CLI module where it is imported!
+@patch("geminiai_cli.cli.do_session")
 def test_main_session_arg(mock_do_session):
     from geminiai_cli.cli import main
     with patch("sys.argv", ["geminiai", "--session"]):

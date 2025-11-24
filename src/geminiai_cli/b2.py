@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import os
 import sys
 from .ui import cprint, NEON_GREEN, NEON_RED, NEON_YELLOW
@@ -24,7 +25,7 @@ class B2Manager:
             self.bucket = self.b2_api.get_bucket_by_name(bucket_name)
             cprint(NEON_GREEN, f"[CLOUD] Connected to bucket: {bucket_name}")
         except Exception as e:
-            cprint(NEON_RED, f"[CLOUD] Authentication failed: {e}")
+            cprint(NEON_RED, f"[CLOUD] Authentication failed: {str(e)}")
             sys.exit(1)
 
     def upload(self, local_path, remote_name=None):
@@ -39,7 +40,7 @@ class B2Manager:
             )
             cprint(NEON_GREEN, "[CLOUD] Upload successful!")
         except Exception as e:
-            cprint(NEON_RED, f"[CLOUD] Upload failed: {e}")
+            cprint(NEON_RED, f"[CLOUD] Upload failed: {str(e)}")
 
     def list_backups(self):
         """Returns a generator of file versions."""
@@ -53,5 +54,5 @@ class B2Manager:
 
             cprint(NEON_GREEN, "[CLOUD] Download successful!")
         except Exception as e:
-            cprint(NEON_RED, f"[CLOUD] Download failed: {e}")
+            cprint(NEON_RED, f"[CLOUD] Download failed: {str(e)}")
             sys.exit(1)
