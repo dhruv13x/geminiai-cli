@@ -4,9 +4,9 @@ import os
 import json
 from typing import Optional, Dict
 from .ui import cprint
-from .config import NEON_CYAN, NEON_GREEN, NEON_YELLOW, NEON_RED, RESET
+from .config import NEON_CYAN, NEON_GREEN, NEON_YELLOW, NEON_RED, RESET, DEFAULT_GEMINI_HOME
 
-GOOGLE_ACCOUNTS_PATH = "/root/.gemini/google_accounts.json"
+GOOGLE_ACCOUNTS_PATH = os.path.join(DEFAULT_GEMINI_HOME, "google_accounts.json")
 
 def get_active_session() -> Optional[str]:
     """

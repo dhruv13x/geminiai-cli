@@ -5,7 +5,8 @@ from geminiai_cli.logout import do_logout
 @patch("geminiai_cli.logout.run")
 @patch("geminiai_cli.logout.os.path.exists")
 @patch("geminiai_cli.logout.cprint")
-def test_do_logout_exists(mock_cprint, mock_exists, mock_run):
+@patch("subprocess.run")
+def test_do_logout_exists(mock_sub_run, mock_cprint, mock_exists, mock_run):
     mock_exists.return_value = True
     do_logout()
 
@@ -15,7 +16,8 @@ def test_do_logout_exists(mock_cprint, mock_exists, mock_run):
 @patch("geminiai_cli.logout.run")
 @patch("geminiai_cli.logout.os.path.exists")
 @patch("geminiai_cli.logout.cprint")
-def test_do_logout_not_exists(mock_cprint, mock_exists, mock_run):
+@patch("subprocess.run")
+def test_do_logout_not_exists(mock_sub_run, mock_cprint, mock_exists, mock_run):
     mock_exists.return_value = False
     do_logout()
 

@@ -26,7 +26,7 @@ import sys
 import time
 import tempfile
 from typing import Optional
-from .config import TIMESTAMPED_DIR_REGEX
+from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR
 from .b2 import B2Manager
 from .settings import get_setting
 
@@ -98,8 +98,8 @@ def atomic_symlink(target: str, link_name: str):
 def main():
     p = argparse.ArgumentParser(description="Safe timestamped backup for ~/.gemini (name: YYYY-MM-DD_HHMMSS-email.gemini)")
     p.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
-    p.add_argument("--archive-dir", default="/root/geminiai_backups", help="Directory to store tar.gz archives")
-    p.add_argument("--dest-dir-parent", default="/root/geminiai_backups", help="Parent directory where timestamped backups are stored")
+    p.add_argument("--archive-dir", default=DEFAULT_BACKUP_DIR, help="Directory to store tar.gz archives")
+    p.add_argument("--dest-dir-parent", default=DEFAULT_BACKUP_DIR, help="Parent directory where timestamped backups are stored")
     p.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
     p.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
     p.add_argument("--bucket", help="B2 Bucket Name")

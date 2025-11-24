@@ -8,6 +8,7 @@ from rich.table import Table
 from .settings import get_setting
 from .b2 import B2Manager
 from .ui import banner
+from .config import DEFAULT_BACKUP_DIR
 
 console = Console()
 
@@ -32,7 +33,7 @@ def do_doctor():
     # Directories
     dirs = [
         ("~/.gemini", "Config Dir"),
-        ("/root/geminiai_backups", "Backup Dir")
+        (DEFAULT_BACKUP_DIR, "Backup Dir")
     ]
     for d, desc in dirs:
         path = os.path.expanduser(d)

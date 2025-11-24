@@ -10,10 +10,11 @@ import argparse
 from .ui import cprint, NEON_CYAN, NEON_YELLOW, NEON_RED
 from .b2 import B2Manager
 from .settings import get_setting
+from .config import DEFAULT_BACKUP_DIR
 
 def main():
     parser = argparse.ArgumentParser(description="List available Gemini backups.")
-    parser.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for backups (default /root/geminiai_backups)")
+    parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for backups (default ~/geminiai_backups)")
     parser.add_argument("--cloud", action="store_true", help="List backups from Cloud (B2)")
     parser.add_argument("--bucket", help="B2 Bucket Name")
     parser.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")

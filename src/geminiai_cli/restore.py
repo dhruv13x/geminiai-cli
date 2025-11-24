@@ -28,7 +28,7 @@ import sys
 import tempfile
 import time
 from typing import Optional, Tuple
-from .config import TIMESTAMPED_DIR_REGEX
+from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR
 from .b2 import B2Manager
 from .settings import get_setting
 ...
@@ -103,7 +103,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--from-dir", help="Directory backup to restore from (legacy, archive is preferred)")
     p.add_argument("--from-archive", help="Tar.gz archive to restore from")
-    p.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for timestamped backups when no source is specified (default: /root/geminiai_backups)")
+    p.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for timestamped backups when no source is specified (default: ~/geminiai_backups)")
     p.add_argument("--dest", default="~/.gemini", help="Destination (default ~/.gemini)")
     p.add_argument("--force", action="store_true", help="Allow destructive replace without keeping .bak")
     p.add_argument("--dry-run", action="store_true", help="Do a dry run without destructive actions")

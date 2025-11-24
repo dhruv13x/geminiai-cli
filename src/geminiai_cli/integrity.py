@@ -9,7 +9,7 @@ import sys
 import time
 from typing import Optional, Tuple
 
-from .config import TIMESTAMPED_DIR_REGEX
+from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR
 import subprocess
 
 from .config import TIMESTAMPED_DIR_REGEX
@@ -60,7 +60,7 @@ def find_latest_backup(search_dir: str) -> Optional[str]:
 def main():
     p = argparse.ArgumentParser(description="Check integrity of current configuration against the latest backup.")
     p.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
-    p.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for timestamped backups (default /root/geminiai_backups)")
+    p.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for timestamped backups (default ~/geminiai_backups)")
     args = p.parse_args()
 
     src = os.path.abspath(os.path.expanduser(args.src))

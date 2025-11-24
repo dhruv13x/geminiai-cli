@@ -6,7 +6,8 @@ from geminiai_cli.update import do_update, do_check_update
 @patch("geminiai_cli.update.shutil.rmtree")
 @patch("geminiai_cli.update.os.path.exists")
 @patch("geminiai_cli.update.cprint")
-def test_do_update_success(mock_cprint, mock_exists, mock_rmtree, mock_run):
+@patch("subprocess.run") # Safety net
+def test_do_update_success(mock_sub_run, mock_cprint, mock_exists, mock_rmtree, mock_run):
     # Mock sequence for run_cmd_safe:
     # 1. rm symlink (returns 0)
     # 2. npm root (returns "/usr/lib/node_modules")
@@ -34,7 +35,8 @@ def test_do_update_success(mock_cprint, mock_exists, mock_rmtree, mock_run):
 @patch("geminiai_cli.update.shutil.rmtree")
 @patch("geminiai_cli.update.os.path.exists")
 @patch("geminiai_cli.update.cprint")
-def test_do_update_fail_then_success(mock_cprint, mock_exists, mock_rmtree, mock_run):
+@patch("subprocess.run") # Safety net
+def test_do_update_fail_then_success(mock_sub_run, mock_cprint, mock_exists, mock_rmtree, mock_run):
     # Mock sequence:
     # 1. rm symlink
     # 2. npm root -> fail
@@ -146,7 +148,8 @@ def test_do_check_update_available_yes(mock_cprint, mock_input, mock_run, mock_d
 @patch("geminiai_cli.update.shutil.rmtree")
 @patch("geminiai_cli.update.os.path.exists")
 @patch("geminiai_cli.update.cprint")
-def test_do_update_rmtree_fail(mock_cprint, mock_exists, mock_rmtree, mock_run):
+@patch("subprocess.run") # Safety net
+def test_do_update_rmtree_fail(mock_sub_run, mock_cprint, mock_exists, mock_rmtree, mock_run):
     # Test lines 37-38: Exception during shutil.rmtree
 
     mock_run.side_effect = [
@@ -168,7 +171,8 @@ def test_do_update_rmtree_fail(mock_cprint, mock_exists, mock_rmtree, mock_run):
 @patch("geminiai_cli.update.shutil.rmtree")
 @patch("geminiai_cli.update.os.path.exists")
 @patch("geminiai_cli.update.cprint")
-def test_do_update_ls_fail(mock_cprint, mock_exists, mock_rmtree, mock_run):
+@patch("subprocess.run") # Safety net
+def test_do_update_ls_fail(mock_sub_run, mock_cprint, mock_exists, mock_rmtree, mock_run):
     # Test line 48: ls returned rc!=0
 
     mock_run.side_effect = [
@@ -189,7 +193,8 @@ def test_do_update_ls_fail(mock_cprint, mock_exists, mock_rmtree, mock_run):
 @patch("geminiai_cli.update.shutil.rmtree")
 @patch("geminiai_cli.update.os.path.exists")
 @patch("geminiai_cli.update.cprint")
-def test_do_update_all_installs_fail(mock_cprint, mock_exists, mock_rmtree, mock_run):
+@patch("subprocess.run") # Safety net
+def test_do_update_all_installs_fail(mock_sub_run, mock_cprint, mock_exists, mock_rmtree, mock_run):
     # Test lines 67-74: Update failed even with --unsafe-perm, and npm bin logic
 
     mock_run.side_effect = [
