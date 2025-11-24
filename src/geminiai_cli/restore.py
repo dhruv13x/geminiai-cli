@@ -30,6 +30,7 @@ import time
 from typing import Optional, Tuple
 from .config import TIMESTAMPED_DIR_REGEX
 from .b2 import B2Manager
+from .settings import get_setting
 ...
 LOCKFILE = "/var/lock/gemini-backup.lock"
 
@@ -108,8 +109,8 @@ def main():
     p.add_argument("--dry-run", action="store_true", help="Do a dry run without destructive actions")
     p.add_argument("--cloud", action="store_true", help="Restore from Cloud (B2)")
     p.add_argument("--bucket", help="B2 Bucket Name")
-    p.add_argument("--b2-id", help="B2 Key ID (or set env B2_APPLICATION_KEY_ID)")
-    p.add_argument("--b2-key", help="B2 App Key (or set env B2_APPLICATION_KEY)")
+    p.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
+    p.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
     args = p.parse_args()
 
     dest = os.path.abspath(os.path.expanduser(args.dest))
@@ -121,9 +122,9 @@ def main():
 
     # --- NEW CODE BLOCK: CLOUD DISCOVERY ---
     if args.cloud:
-        key_id = args.b2_id or os.environ.get("B2_APPLICATION_KEY_ID")
-        app_key = args.b2_key or os.environ.get("B2_APPLICATION_KEY")
-        bucket_name = args.bucket or os.environ.get("B2_BUCKET_NAME")
+        key_id = args.b2_id or os.environ.get("GEMINI_B2_KEY_ID") or get_setting("b2_id")
+        app_key = args.b2_key or os.environ.get("GEMINI_B2_APP_KEY") or get_setting("b2_key")
+        bucket_name = args.bucket or os.environ.get("GEMINI_B2_BUCKET") or get_setting("bucket")
 
         if not (key_id and app_key and bucket_name):
             print("[ERROR] Cloud restore requested but credentials missing.")
@@ -145,11 +146,28 @@ def main():
             print("No valid backups found in B2 bucket.")
             sys.exit(1)
 
-        # 2. Auto-select oldest (matches existing logic)
-        # Sorting by timestamp (earliest first)
-        all_files.sort(key=lambda x: time.mktime(x[0]))
-        target_file_name = all_files[0][1]
-        print(f"Auto-selected oldest cloud backup: {target_file_name}")
+        target_file_name = None
+
+        if args.from_archive:
+            # User requested a specific file
+            wanted_name = os.path.basename(args.from_archive)
+            # Check if it exists in the list we just fetched
+            for _, fname in all_files:
+                if fname == wanted_name:
+                    target_file_name = fname
+                    break
+            
+            if target_file_name:
+                print(f"Selected specified cloud backup: {target_file_name}")
+            else:
+                print(f"Error: Specified archive '{wanted_name}' not found in B2 bucket.")
+                sys.exit(1)
+        else:
+            # 2. Auto-select oldest (matches existing logic)
+            # Sorting by timestamp (earliest first)
+            all_files.sort(key=lambda x: time.mktime(x[0]))
+            target_file_name = all_files[0][1]
+            print(f"Auto-selected oldest cloud backup: {target_file_name}")
 
         # 3. Download to a temporary file
         temp_download_path = os.path.join(tempfile.gettempdir(), target_file_name)

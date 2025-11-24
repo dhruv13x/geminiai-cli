@@ -9,24 +9,25 @@ import sys
 import argparse
 from .ui import cprint, NEON_CYAN, NEON_YELLOW, NEON_RED
 from .b2 import B2Manager
+from .settings import get_setting
 
 def main():
     parser = argparse.ArgumentParser(description="List available Gemini backups.")
     parser.add_argument("--search-dir", default="/root/geminiai_backups", help="Directory to search for backups (default /root/geminiai_backups)")
     parser.add_argument("--cloud", action="store_true", help="List backups from Cloud (B2)")
     parser.add_argument("--bucket", help="B2 Bucket Name")
-    parser.add_argument("--b2-id", help="B2 Key ID (or set env B2_APPLICATION_KEY_ID)")
-    parser.add_argument("--b2-key", help="B2 App Key (or set env B2_APPLICATION_KEY)")
+    parser.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
+    parser.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
     args = parser.parse_args()
 
     if args.cloud:
-        key_id = args.b2_id or os.environ.get("B2_APPLICATION_KEY_ID")
-        app_key = args.b2_key or os.environ.get("B2_APPLICATION_KEY")
-        bucket_name = args.bucket or os.environ.get("B2_BUCKET_NAME")
+        key_id = args.b2_id or os.environ.get("GEMINI_B2_KEY_ID") or get_setting("b2_id")
+        app_key = args.b2_key or os.environ.get("GEMINI_B2_APP_KEY") or get_setting("b2_key")
+        bucket_name = args.bucket or os.environ.get("GEMINI_B2_BUCKET") or get_setting("bucket")
 
         if not (key_id and app_key and bucket_name):
             cprint(NEON_RED, "[ERROR] Cloud listing requested but credentials or bucket name missing.")
-            cprint(NEON_RED, "Provide --b2-id, --b2-key, --bucket OR set environment variables.")
+            cprint(NEON_RED, "Provide --b2-id, --b2-key, --bucket OR set environment variables OR use 'geminiai config set ...'.")
             sys.exit(1)
 
         b2 = B2Manager(key_id, app_key, bucket_name)

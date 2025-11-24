@@ -5,11 +5,14 @@ description = "Gemini AI CLI Tool for automation"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "b2sdk>=1.18.0"
+    "b2sdk>=1.18.0",
+    "rich>=10.0.0"
 ]
 
 [project.scripts]
 geminiai = "geminiai_cli.cli:main"
+alice = "geminiai_cli.cli:main"
+ga = "geminiai_cli.cli:main"
 
 [build-system]
 requires = ["setuptools", "wheel"]
@@ -46,7 +49,7 @@ addopts = [
     "-ra",
     "--tb=short",
     "--showlocals",
-    "--timeout=30",
+    "--timeout=10",
     "--durations=10",
     "--import-mode=importlib",
     "--cov=src/geminiai_cli",

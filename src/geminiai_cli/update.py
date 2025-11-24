@@ -27,7 +27,8 @@ def do_update():
         cprint(NEON_YELLOW, f"[WARN] Could not determine npm global root (rc={rc}). Falling back to /usr/lib/node_modules")
         npm_root = "/usr/lib/node_modules"
 
-    google_pkg_dir = os.path.join(npm_root, "@google")
+#     google_pkg_dir = os.path.join(npm_root, "@google") # umcomment if current version is not working
+    google_pkg_dir = os.path.join(npm_root, "@google", "gemini-cli")
     if os.path.exists(google_pkg_dir):
         cprint(NEON_YELLOW, f"[INFO] Removing existing {google_pkg_dir} ...")
         try:

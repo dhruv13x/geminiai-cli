@@ -2,9 +2,16 @@
 
 import argparse
 import sys
-from .ui import banner, cprint
+from rich.table import Table
+from rich.panel import Panel
+from rich.align import Align
+from .ui import banner, cprint, console
 from .login import do_login
 from .logout import do_logout
+from .session import do_session
+from .settings_cli import do_config
+from .doctor import do_doctor
+from .prune import do_prune
 from .update import do_update, do_check_update
 from .reset_helpers import (
     do_next_reset,
@@ -20,37 +27,124 @@ from .list_backups import main as list_backups_main
 from .check_b2 import main as check_b2_main
 from .sync import cloud_sync, local_sync
 
-def main():
-    parser = argparse.ArgumentParser(description="Gemini CLI Automation Script (Neon Theme)")
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+def print_rich_help():
+    """Prints a beautiful Rich-formatted help screen for the MAIN command."""
+    banner()
+    
+    console.print("[bold white]Usage:[/] [bold cyan]alice[/] [dim][OPTIONS][/] [bold magenta]COMMAND[/] [dim][ARGS]...[/]\n")
 
-    # Keep existing top-level arguments and add backup/restore as commands
+    # Commands Table
+    cmd_table = Table(show_header=False, box=None, padding=(0, 2))
+    cmd_table.add_column("Command", style="bold cyan", width=20)
+    cmd_table.add_column("Description", style="white")
+
+    commands = [
+        ("backup", "Backup Gemini configuration and chats"),
+        ("restore", "Restore Gemini configuration from a backup"),
+        ("check-integrity", "Check integrity of current configuration"),
+        ("list-backups", "List available backups"),
+        ("prune", "Prune old backups (local or cloud)"),
+        ("check-b2", "Verify Backblaze B2 credentials"),
+        ("cloud-sync", "Sync local backups to Cloud"),
+        ("local-sync", "Sync Cloud backups to local"),
+        ("config", "Manage persistent configuration"),
+        ("doctor", "Run system diagnostic check"),
+        ("resets", "Manage Gemini free tier reset schedules"),
+    ]
+    
+    for cmd, desc in commands:
+        cmd_table.add_row(cmd, desc)
+
+    console.print(Panel(cmd_table, title="[bold magenta]Available Commands[/]", border_style="cyan"))
+
+    # Options Table
+    opt_table = Table(show_header=False, box=None, padding=(0, 2))
+    opt_table.add_column("Option", style="bold yellow", width=20)
+    opt_table.add_column("Description", style="white")
+
+    options = [
+        ("--login", "Login to Gemini CLI"),
+        ("--logout", "Logout from Gemini CLI"),
+        ("--session", "Show current active session"),
+        ("--update", "Reinstall / update Gemini CLI"),
+        ("--check-update", "Check for updates"),
+        ("--help, -h", "Show this message and exit"),
+    ]
+
+    for opt, desc in options:
+        opt_table.add_row(opt, desc)
+
+    console.print(Panel(opt_table, title="[bold yellow]Options[/]", border_style="green"))
+    sys.exit(0)
+
+class RichHelpParser(argparse.ArgumentParser):
+    """
+    Custom parser that overrides print_help to display a Rich-based help screen
+    for subcommands (and the main command if accessed via standard flow).
+    """
+    def error(self, message):
+        console.print(f"[bold red]Error:[/ {message}")
+        # Only print full help if really needed, or just hint
+        console.print("[dim]Use --help for usage information.[/]")
+        sys.exit(2)
+
+    def print_help(self, file=None):
+        """
+        Dynamically generates Rich help for ANY parser (main or subcommand).
+        """
+        # If this is the main parser (checking by prog name usually, or description),
+        # we might want to use the specialized print_rich_help() for the fancy banner.
+        # However, implementing a generic one is better for subcommands.
+        
+        if self.description and "Alice - Gemini AI" in self.description:
+             # This is likely the main parser
+             print_rich_help()
+             return
+
+        # For Subcommands (e.g., 'alice backup')
+        console.print(f"[bold cyan]Command:[/ ] [bold magenta]{self.prog}[/]\n")
+        if self.description:
+            console.print(f"[italic]{self.description}[/]\n")
+        
+        # Usage
+        console.print(f"[bold white]Usage:[/ ] [dim]{self.format_usage().strip().replace('usage: ', '')}[/]\n")
+
+        # Arguments
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        table.add_column("Option", style="bold yellow", width=30)
+        table.add_column("Description", style="white")
+
+        for action in self._actions:
+            # Skip help if we want, but usually good to show
+            opts = ", ".join(action.option_strings)
+            if not opts:
+                opts = action.dest # Positional arg
+            
+            help_text = action.help or ""
+            # Handle default values
+            if action.default != argparse.SUPPRESS and action.default is not None:
+                # help_text += f" [dim](default: {action.default})[/]" 
+                pass # argparse puts default in help usually, check formatting
+
+            table.add_row(opts, help_text)
+
+        console.print(Panel(table, title="[bold green]Arguments & Options[/]", border_style="cyan"))
+
+def main():
+    # Handle main help manually to use Rich if no args or explicit help on main
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ["-h", "--help"]):
+        print_rich_help()
+
+    # Use RichHelpParser for the main parser
+    parser = RichHelpParser(description="Alice - Gemini AI Automation Tool", add_help=False)
+    subparsers = parser.add_subparsers(dest="command", help="Available commands", parser_class=RichHelpParser)
+
+    # Keep existing top-level arguments
     parser.add_argument("--login", action="store_true", help="Login to Gemini CLI")
     parser.add_argument("--logout", action="store_true", help="Logout from Gemini CLI")
+    parser.add_argument("--session", action="store_true", help="Show current active session")
     parser.add_argument("--update", action="store_true", help="Reinstall / update Gemini CLI")
     parser.add_argument("--check-update", action="store_true", help="Check for updates")
-    parser.add_argument(
-        "--next",
-        nargs="?",
-        const="*ALL*",
-        help="Show next usage time. Optionally pass email or id: --next alice@example.com"
-    )
-    parser.add_argument(
-        "--add",
-        nargs="?",
-        const="",
-        help='Add time manually. Example: --add "01:00 PM alice@example.com" (quotes needed for spaces) or --add 13:00 alice@example.com'
-    )
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        help="List saved schedules"
-    )
-    parser.add_argument(
-        "--remove",
-        nargs=1,
-        help="Remove saved entry by id or email. Example: --remove alice@example.com"
-    )
 
     # Backup command
     backup_parser = subparsers.add_parser("backup", help="Backup Gemini configuration and chats (local or Backblaze B2 cloud).")
@@ -60,8 +154,8 @@ def main():
     backup_parser.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
     backup_parser.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
     backup_parser.add_argument("--bucket", help="B2 Bucket Name")
-    backup_parser.add_argument("--b2-id", help="B2 Key ID (or set env B2_APPLICATION_KEY_ID)")
-    backup_parser.add_argument("--b2-key", help="B2 App Key (or set env B2_APPLICATION_KEY)")
+    backup_parser.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
+    backup_parser.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
 
     # Restore command
     restore_parser = subparsers.add_parser("restore", help="Restore Gemini configuration from a backup (local or Backblaze B2 cloud).")
@@ -91,9 +185,9 @@ def main():
 
     # Check B2 command
     check_b2_parser = subparsers.add_parser("check-b2", help="Verify Backblaze B2 credentials.")
-    check_b2_parser.add_argument("--b2-id", help="B2 Key ID (or set env B2_APPLICATION_KEY_ID)")
-    check_b2_parser.add_argument("--b2-key", help="B2 App Key (or set env B2_APPLICATION_KEY)")
-    check_b2_parser.add_argument("--bucket", help="B2 Bucket Name (or set env B2_BUCKET_NAME)")
+    check_b2_parser.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
+    check_b2_parser.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
+    check_b2_parser.add_argument("--bucket", help="B2 Bucket Name (or set env GEMINI_B2_BUCKET)")
 
     # Cloud Sync command
     cloud_sync_parser = subparsers.add_parser("cloud-sync", help="Sync missing local backups to Cloud (B2).")
@@ -109,13 +203,33 @@ def main():
     local_sync_parser.add_argument("--b2-id", help="B2 Key ID")
     local_sync_parser.add_argument("--b2-key", help="B2 App Key")
 
+    # Config command
+    config_parser = subparsers.add_parser("config", help="Manage persistent configuration.")
+    config_parser.add_argument("config_action", choices=["set", "get", "list", "unset"], help="Action to perform")
+    config_parser.add_argument("key", nargs="?", help="Setting key")
+    config_parser.add_argument("value", nargs="?", help="Setting value")
 
-    # To handle the case where the script is called with no arguments
-    if len(sys.argv) == 1:
-        banner()
-        parser.print_help()
-        sys.exit(0)
-    
+    # Resets command (New subcommand for reset management)
+    resets_parser = subparsers.add_parser("resets", help="Manage Gemini free tier reset schedules.")
+    resets_parser.add_argument("--list", action="store_true", help="List saved schedules")
+    resets_parser.add_argument("--next", nargs="?", const="*ALL*", help="Show next usage time. Optionally pass email or id.")
+    resets_parser.add_argument("--add", nargs="?", const="", help="Add time manually. Example: --add '01:00 PM alice@example.com'")
+    resets_parser.add_argument("--remove", nargs=1, help="Remove saved entry by id or email.")
+
+    # Doctor command
+    subparsers.add_parser("doctor", help="Run system diagnostic check.")
+
+    # Prune command
+    prune_parser = subparsers.add_parser("prune", help="Prune old backups.")
+    prune_parser.add_argument("--keep", type=int, default=5, help="Number of recent backups to keep (default: 5)")
+    prune_parser.add_argument("--backup-dir", default="/root/geminiai_backups", help="Local backup directory")
+    prune_parser.add_argument("--cloud", action="store_true", help="Also prune cloud backups")
+    prune_parser.add_argument("--cloud-only", action="store_true", help="Only prune cloud backups")
+    prune_parser.add_argument("--dry-run", action="store_true", help="Show what would be deleted without doing it")
+    prune_parser.add_argument("--bucket", help="B2 Bucket Name")
+    prune_parser.add_argument("--b2-id", help="B2 Key ID")
+    prune_parser.add_argument("--b2-key", help="B2 App Key")
+
     args = parser.parse_args()
 
     if args.command == "backup":
@@ -178,33 +292,43 @@ def main():
         cloud_sync(args)
     elif args.command == "local-sync":
         local_sync(args)
+    elif args.command == "config":
+        do_config(args)
+    elif args.command == "doctor":
+        do_doctor()
+    elif args.command == "prune":
+        do_prune(args)
+    elif args.command == "resets":
+        if args.list:
+            do_list_resets()
+        elif args.remove is not None:
+            key = args.remove[0]
+            ok = remove_entry_by_id(key)
+            if ok:
+                cprint(NEON_CYAN, f"[OK] Removed entries matching: {key}")
+            else:
+                cprint(NEON_YELLOW, f"[WARN] No entries matched: {key}")
+        elif args.next is not None:
+            ident = args.next
+            if ident == "*ALL*":
+                ident = None
+            do_next_reset(ident)
+        elif args.add is not None:
+            do_capture_reset(args.add)
+        else:
+            resets_parser.print_help()
     elif args.login:
         do_login()
     elif args.logout:
         do_logout()
+    elif args.session:
+        do_session()
     elif args.update:
         do_update()
     elif args.check_update:
         do_check_update()
-    elif args.list:
-        do_list_resets()
-    elif args.remove is not None:
-        key = args.remove[0]
-        ok = remove_entry_by_id(key)
-        if ok:
-            cprint(NEON_CYAN, f"[OK] Removed entries matching: {key}")
-        else:
-            cprint(NEON_YELLOW, f"[WARN] No entries matched: {key}")
-    elif args.next is not None:
-        ident = args.next
-        if ident == "*ALL*":
-            ident = None
-        do_next_reset(ident)
-    elif args.add is not None:
-        do_capture_reset(args.add)
     else:
-        banner()
-        parser.print_help()
+        print_rich_help()
 
 
 if __name__ == "__main__":

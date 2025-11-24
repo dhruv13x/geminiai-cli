@@ -11,16 +11,17 @@ import sys
 import argparse
 from .ui import cprint, NEON_GREEN, NEON_CYAN, NEON_YELLOW, NEON_RED, NEON_MAGENTA
 from .b2 import B2Manager
+from .settings import get_setting
 
 def get_b2_credentials(args):
-    """Resolves B2 credentials from arguments or environment variables."""
-    key_id = args.b2_id or os.environ.get("B2_APPLICATION_KEY_ID")
-    app_key = args.b2_key or os.environ.get("B2_APPLICATION_KEY")
-    bucket_name = args.bucket or os.environ.get("B2_BUCKET_NAME")
+    """Resolves B2 credentials from arguments or environment variables or config."""
+    key_id = args.b2_id or os.environ.get("GEMINI_B2_KEY_ID") or get_setting("b2_id")
+    app_key = args.b2_key or os.environ.get("GEMINI_B2_APP_KEY") or get_setting("b2_key")
+    bucket_name = args.bucket or os.environ.get("GEMINI_B2_BUCKET") or get_setting("bucket")
 
     if not (key_id and app_key and bucket_name):
         cprint(NEON_RED, "[ERROR] Cloud sync requested but credentials or bucket name missing.")
-        cprint(NEON_RED, "Provide --b2-id, --b2-key, --bucket OR set environment variables.")
+        cprint(NEON_RED, "Provide --b2-id, --b2-key, --bucket OR set environment variables OR use 'geminiai config set ...'.")
         sys.exit(1)
     
     return key_id, app_key, bucket_name

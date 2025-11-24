@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, mock_open, MagicMock, ANY
 import os
 import time
 import sys
@@ -259,3 +259,29 @@ def test_main_rollback_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists
         with pytest.raises(SystemExit) as e:
             restore.main()
         assert e.value.code == 4
+
+@patch("geminiai_cli.restore.acquire_lock")
+@patch("geminiai_cli.restore.B2Manager")
+@patch("geminiai_cli.restore.run")
+@patch("os.path.exists", return_value=True)
+@patch("os.makedirs")
+@patch("os.replace")
+@patch("shutil.rmtree")
+@patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
+def test_main_cloud_specific_archive(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock):
+    specific_archive = "2025-11-21_231311-specific@test.gemini.tar.gz"
+    with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k", "--from-archive", specific_archive]):
+        mock_file_specific = MagicMock()
+        mock_file_specific.file_name = specific_archive
+        
+        mock_file_old = MagicMock()
+        mock_file_old.file_name = "2025-10-22_042211-old@test.gemini.tar.gz"
+        
+        # b2.list_backups returns both
+        mock_b2.return_value.list_backups.return_value = [(mock_file_old, None), (mock_file_specific, None)]
+
+        mock_run.return_value.returncode = 0
+        restore.main()
+        
+        # Assert download was called with the SPECIFIC archive, not the oldest one
+        mock_b2.return_value.download.assert_called_with(specific_archive, ANY)

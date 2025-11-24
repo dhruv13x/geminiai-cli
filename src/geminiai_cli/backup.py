@@ -28,6 +28,7 @@ import tempfile
 from typing import Optional
 from .config import TIMESTAMPED_DIR_REGEX
 from .b2 import B2Manager
+from .settings import get_setting
 
 LOCKFILE = "/var/lock/gemini-backup.lock"
 
@@ -102,8 +103,8 @@ def main():
     p.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
     p.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
     p.add_argument("--bucket", help="B2 Bucket Name")
-    p.add_argument("--b2-id", help="B2 Key ID (or set env B2_APPLICATION_KEY_ID)")
-    p.add_argument("--b2-key", help="B2 App Key (or set env B2_APPLICATION_KEY)")
+    p.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
+    p.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
     args = p.parse_args()
 
     src = os.path.abspath(os.path.expanduser(args.src))
@@ -193,14 +194,14 @@ def main():
         
         # --- NEW CODE BLOCK: CLOUD UPLOAD ---
         if args.cloud:
-            # Resolve credentials (CLI arg > Env Var)
-            key_id = args.b2_id or os.environ.get("B2_APPLICATION_KEY_ID")
-            app_key = args.b2_key or os.environ.get("B2_APPLICATION_KEY")
-            bucket = args.bucket or os.environ.get("B2_BUCKET_NAME")
+            # Resolve credentials (CLI arg > Env Var > Config)
+            key_id = args.b2_id or os.environ.get("GEMINI_B2_KEY_ID") or get_setting("b2_id")
+            app_key = args.b2_key or os.environ.get("GEMINI_B2_APP_KEY") or get_setting("b2_key")
+            bucket = args.bucket or os.environ.get("GEMINI_B2_BUCKET") or get_setting("bucket")
 
             if not (key_id and app_key and bucket):
                 print("[ERROR] Cloud upload requested but credentials missing.")
-                print("Provide --b2-id, --b2-key, --bucket OR set env vars.")
+                print("Provide --b2-id, --b2-key, --bucket OR set env vars OR use 'geminiai config set ...'.")
             else:
                 b2 = B2Manager(key_id, app_key, bucket)
                 # Upload the tar.gz we just created
