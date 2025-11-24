@@ -157,3 +157,128 @@ def test_rich_help_parser_print_help_main():
          parser.print_help()
          # print_rich_help calls exit(0)
          mock_exit.assert_called_with(0)
+
+@patch("geminiai_cli.cli.print_rich_help")
+def test_main_no_args(mock_help):
+    with patch("sys.argv", ["geminiai"]):
+        with patch("sys.exit"): # Help parser exits
+             main()
+        mock_help.assert_called()
+
+@patch("geminiai_cli.cli.print_rich_help")
+def test_main_help_arg(mock_help):
+    with patch("sys.argv", ["geminiai", "--help"]):
+        with patch("sys.exit"):
+            main()
+        mock_help.assert_called()
+
+@patch("geminiai_cli.cli.RichHelpParser.print_help")
+def test_main_resets_no_args(mock_print_help):
+    with patch("sys.argv", ["geminiai", "resets"]):
+        main()
+        mock_print_help.assert_called()
+
+# Test arg parsing branches for backup (cloud options)
+@patch("geminiai_cli.cli.backup_main")
+def test_main_backup_cloud(mock_backup):
+    with patch("sys.argv", ["geminiai", "backup", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
+        main()
+        mock_backup.assert_called()
+
+@patch("geminiai_cli.cli.backup_main")
+def test_main_backup_empty_src(mock_backup):
+    with patch("sys.argv", ["geminiai", "backup", "--src", ""]):
+        main()
+        mock_backup.assert_called()
+
+@patch("geminiai_cli.cli.backup_main")
+def test_main_backup_dry_run(mock_backup):
+    with patch("sys.argv", ["geminiai", "backup", "--dry-run"]):
+        main()
+        mock_backup.assert_called()
+
+@patch("geminiai_cli.cli.backup_main")
+def test_main_backup_no_archive_dir(mock_backup):
+    # Default is set, so we need to explicitly set it to empty string to trigger false branch if argparse allows it
+    # Actually argparse default fills it.
+    # If I pass --archive-dir="", args.archive_dir will be "".
+    with patch("sys.argv", ["geminiai", "backup", "--archive-dir", ""]):
+        main()
+        mock_backup.assert_called()
+
+@patch("geminiai_cli.cli.backup_main")
+def test_main_backup_no_dest_parent(mock_backup):
+    with patch("sys.argv", ["geminiai", "backup", "--dest-dir-parent", ""]):
+        main()
+        mock_backup.assert_called()
+
+# Test arg parsing for restore (cloud options)
+@patch("geminiai_cli.cli.restore_main")
+def test_main_restore_cloud(mock_restore):
+    with patch("sys.argv", ["geminiai", "restore", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k", "--dest", "d", "--force", "--dry-run", "--from-dir", "d", "--from-archive", "a", "--search-dir", "s"]):
+        main()
+        mock_restore.assert_called()
+
+@patch("geminiai_cli.cli.restore_main")
+def test_main_restore_empty_search_dir(mock_restore):
+    with patch("sys.argv", ["geminiai", "restore", "--search-dir", ""]):
+        main()
+        mock_restore.assert_called()
+
+# Test arg parsing for list-backups
+@patch("geminiai_cli.cli.list_backups_main")
+def test_main_list_backups_args(mock_list):
+     with patch("sys.argv", ["geminiai", "list-backups", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k", "--search-dir", "s"]):
+        main()
+        mock_list.assert_called()
+
+@patch("geminiai_cli.cli.list_backups_main")
+def test_main_list_backups_empty_search_dir(mock_list):
+     with patch("sys.argv", ["geminiai", "list-backups", "--search-dir", ""]):
+        main()
+        mock_list.assert_called()
+
+# Test arg parsing for check-b2
+@patch("geminiai_cli.cli.check_b2_main")
+def test_main_check_b2_args(mock_check):
+     with patch("sys.argv", ["geminiai", "check-b2", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
+        main()
+        mock_check.assert_called()
+
+# Test arg parsing for check-integrity
+@patch("geminiai_cli.cli.integrity_main")
+def test_main_integrity_args(mock_integrity):
+    with patch("sys.argv", ["geminiai", "check-integrity", "--src", "s", "--search-dir", "d"]):
+        main()
+        mock_integrity.assert_called()
+
+def test_rich_help_parser_print_help_subcommand_with_default():
+    parser = RichHelpParser(prog="geminiai backup", description="Backup command")
+    parser.add_argument("--test", default="val", help="help")
+    with patch("builtins.print"):
+        parser.print_help()
+
+@patch("geminiai_cli.cli.print_rich_help")
+def test_main_else_branch(mock_help):
+    # To hit the else branch, we need valid args that don't match any known command logic block?
+    # But argparse handles command validation.
+    # The 'else' block is `else: print_rich_help()`.
+    # This happens if args.command is None (no subcommand) AND no top level args matched.
+    # But main uses `subparsers.add_subparsers(dest="command"...)`.
+    # If no subcommand provided, args.command is None.
+    # If no flags provided, we hit `if len(sys.argv) == 1`.
+    # If we provide an unknown flag, argparse errors.
+    # If we provide a known flag that doesn't have a handler logic block?
+    # All flags have handlers.
+    # If we provide NO flags and NO command, but we bypass the manual check `if len(sys.argv) == 1`?
+    # Wait, `if len(sys.argv) == 1` calls print_rich_help.
+    # So we need `sys.argv` length > 1 but no command and no top level flag.
+    # e.g. `geminiai --unknown` -> argparse error.
+
+    # What if we just patch parse_args to return empty namespace with command=None?
+    with patch("argparse.ArgumentParser.parse_args") as mock_parse:
+        mock_parse.return_value = MagicMock(command=None, login=False, logout=False, session=False, update=False, check_update=False)
+        # We need sys.argv > 1 to avoid first check
+        with patch("sys.argv", ["geminiai", "--something-ignored"]):
+            main()
+            mock_help.assert_called()

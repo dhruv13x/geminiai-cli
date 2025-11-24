@@ -2,15 +2,14 @@ import pytest
 from unittest.mock import patch, MagicMock
 import sys
 
-# Setup the mock BEFORE importing the module under test
+# Mock b2sdk module
 mock_b2sdk = MagicMock()
 mock_b2_api_class = MagicMock()
 mock_b2sdk.B2Api = mock_b2_api_class
+mock_b2sdk.InMemoryAccountInfo = MagicMock()
+
 with patch.dict(sys.modules, {"b2sdk.v2": mock_b2sdk}):
     from geminiai_cli.b2 import B2Manager
-
-# Access the mock class directly from the module we imported
-# B2Manager uses B2Api from the module scope
 
 def test_b2_manager_init():
     mock_b2_api_class.return_value.get_bucket_by_name.return_value = MagicMock()
@@ -22,7 +21,6 @@ def test_b2_manager_init_fail():
     mock_b2_api_class.return_value.authorize_account.side_effect = Exception("Auth fail")
     with pytest.raises(SystemExit):
         B2Manager("id", "key", "bucket")
-    # Reset side effect
     mock_b2_api_class.return_value.authorize_account.side_effect = None
 
 def test_b2_manager_upload():
@@ -65,3 +63,25 @@ def test_b2_manager_list_backups():
 
     b2.list_backups()
     mock_bucket.ls.assert_called()
+
+# Test import error handling
+def test_b2_import_error():
+    # We want to test the code path where B2Api is None
+    # We can mock the module attribute directly on the already imported module
+    from geminiai_cli import b2
+    original_b2api = b2.B2Api
+
+    try:
+        b2.B2Api = None
+        with pytest.raises(SystemExit):
+            b2.B2Manager("id", "key", "bucket")
+    finally:
+        b2.B2Api = original_b2api
+
+def test_b2_manager_upload_with_name():
+    mock_bucket = MagicMock()
+    mock_b2_api_class.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2 = B2Manager("id", "key", "bucket")
+
+    b2.upload("local_file", remote_name="remote_file")
+    mock_bucket.upload_local_file.assert_called_with(local_file="local_file", file_name="remote_file")

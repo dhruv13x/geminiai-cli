@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock, ANY
 import os
 import time
-from geminiai_cli.prune import do_prune, get_backup_list, parse_ts
+from geminiai_cli.prune import do_prune, get_backup_list, parse_ts, prune_list
 
 # Helper to create mock args
 def mock_args(backup_dir="/tmp/backups", keep=2, cloud=False, cloud_only=False, dry_run=False,
@@ -124,3 +124,68 @@ def test_do_prune_cloud_error(mock_cprint, mock_b2_class):
             break
 
     assert found
+
+@patch("os.path.exists", return_value=True)
+@patch("os.listdir")
+@patch("os.remove")
+@patch("geminiai_cli.prune.cprint")
+def test_do_prune_local_fail(mock_cprint, mock_remove, mock_listdir, mock_exists):
+    mock_listdir.return_value = [
+        "2023-01-01_120000-backup.gemini.tar.gz",
+        "2023-01-02_120000-backup.gemini.tar.gz"
+    ]
+    # Keep 1 -> delete 1
+    args = mock_args(keep=1)
+    mock_remove.side_effect = Exception("Perm denied")
+
+    do_prune(args)
+
+    assert any("Failed to remove" in str(args) for args in mock_cprint.call_args_list)
+
+@patch("os.path.exists", return_value=False)
+@patch("geminiai_cli.prune.cprint")
+def test_do_prune_local_dir_not_found(mock_cprint, mock_exists):
+    args = mock_args() # default local
+    do_prune(args)
+    assert any("Backup directory not found" in str(args) for args in mock_cprint.call_args_list)
+
+@patch("geminiai_cli.prune.cprint")
+def test_do_prune_cloud_skip_no_creds(mock_cprint):
+    # Cloud requested via --cloud (not cloud_only), so local runs too.
+    # If creds missing, it should print warning but not error.
+    args = mock_args(cloud=True) # b2_id=None
+    with patch("geminiai_cli.prune.get_setting", return_value=None):
+        do_prune(args)
+        assert any("Skipping (credentials not set)" in str(args) for args in mock_cprint.call_args_list)
+
+@patch("geminiai_cli.prune.B2Manager")
+@patch("geminiai_cli.prune.get_setting")
+@patch("geminiai_cli.prune.cprint")
+def test_do_prune_cloud_delete_fail(mock_cprint, mock_get_setting, mock_b2_class):
+    args = mock_args(cloud=True, b2_id="id", b2_key="key", bucket="bucket")
+
+    mock_b2_instance = mock_b2_class.return_value
+    mock_bucket = MagicMock()
+    mock_b2_instance.bucket = mock_bucket
+
+    file1 = MagicMock()
+    file1.file_name = "2023-01-01_120000-backup.gemini.tar.gz"
+    file1.id_ = "id1"
+    file2 = MagicMock()
+    file2.file_name = "2023-01-02_120000-backup.gemini.tar.gz"
+    file2.id_ = "id2"
+
+    mock_b2_instance.list_backups.return_value = [(file1, None), (file2, None)]
+    mock_bucket.delete_file_version.side_effect = Exception("B2 Delete Fail")
+
+    args.keep = 1
+    do_prune(args)
+
+    assert any("Failed to delete cloud file" in str(args) for args in mock_cprint.call_args_list)
+
+def test_prune_list_no_action():
+    # Test len <= keep_count
+    with patch("geminiai_cli.prune.cprint") as mock_cprint:
+        backups = ["a", "b"]
+        prune_list(backups, 5, False, None)
+        assert any("No pruning needed" in str(args) for args in mock_cprint.call_args_list)
