@@ -56,3 +56,13 @@ def test_main_local_no_dir(mock_isdir):
 def test_main_local_error(mock_listdir, mock_isdir):
     with patch("sys.argv", ["list_backups.py", "--search-dir", "/tmp"]):
         list_backups.main()
+
+@patch("geminiai_cli.list_backups.B2Manager")
+def test_main_cloud_loop_continue(mock_b2):
+    # Test line 38: if file_version.file_name.endswith...
+    with patch("sys.argv", ["list_backups.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
+        mock_file = MagicMock()
+        mock_file.file_name = "other.txt" # Not ending in .gemini.tar.gz
+        mock_b2.return_value.list_backups.return_value = [(mock_file, None)]
+        list_backups.main()
+        # Should print "No backups found" because only non-matching file

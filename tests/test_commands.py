@@ -7,7 +7,7 @@ import sys
 # Import commands individually
 from geminiai_cli.login import do_login
 from geminiai_cli.utils import run, read_file
-from geminiai_cli.reset_helpers import run_cmd_safe, save_reset_time_from_output # Ensure run_cmd_safe is imported correctly
+from geminiai_cli.reset_helpers import run_cmd_safe, save_reset_time_from_output
 from geminiai_cli.config import LOGIN_URL_PATH
 
 # --- Tests for do_login ---
@@ -81,4 +81,33 @@ def test_do_login_success_with_code(mock_read_file, mock_run_cmd_safe):
     assert mock_run_cmd_safe.called
     mock_read_file.assert_called_with(LOGIN_URL_PATH)
 
+@patch("geminiai_cli.login.run_cmd_safe")
+@patch("geminiai_cli.login.read_file")
+def test_do_login_interactive_exception(mock_read_file, mock_run_cmd_safe):
+    # Test exception during interactive URL capture (lines 61-62)
+    # Also test run_cmd_safe returning empty output (lines 62->66)
+    mock_run_cmd_safe.side_effect = [
+        (0, "Choose a login method", ""), # First attempt: interactive
+        (0, "", ""), # Enter attempt
+        (0, "output3", "err3") # Third attempt
+    ]
+    # read_file side_effect:
+    # 1. First attempt -> "Choose a login method"
+    # 2. Interactive capture -> Exception!
+    mock_read_file.side_effect = ["Choose a login method", Exception("Read fail")]
 
+    do_login(retries=1)
+
+    # Should hit lines 61-62: except Exception: text = err3 + out3
+    # And then check regex on "err3output3" -> fails -> loop continues -> max retries -> exit
+    assert mock_run_cmd_safe.call_count >= 3
+
+@patch("geminiai_cli.login.run_cmd_safe")
+@patch("geminiai_cli.login.read_file")
+def test_do_login_fail_preview_exception(mock_read_file, mock_run_cmd_safe):
+    # Test lines 76->77: Exception during final preview read
+    mock_run_cmd_safe.return_value = (1, "", "")
+    mock_read_file.side_effect = Exception("Read fail")
+
+    do_login(retries=1)
+    # Should catch exception and set raw=None, then print "(no file)"

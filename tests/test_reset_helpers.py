@@ -251,3 +251,121 @@ def test_cleanup_expired_malformed(mock_save, mock_load):
     mock_load.return_value = [{"reset_ist": "invalid"}]
     removed = reset_helpers.cleanup_expired()
     assert len(removed) == 1
+
+@patch("geminiai_cli.reset_helpers.save_reset_time_from_output")
+def test_run_cmd_safe_capture_reset(mock_save):
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = "output"
+        mock_run.return_value.stderr = ""
+        reset_helpers.run_cmd_safe("ls", detect_reset_time=True)
+        mock_save.assert_called()
+
+@patch("geminiai_cli.reset_helpers.save_reset_time_from_output", side_effect=Exception)
+def test_run_cmd_safe_capture_reset_exception(mock_save):
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = "output"
+        mock_run.return_value.stderr = ""
+        # Should not raise
+        reset_helpers.run_cmd_safe("ls", detect_reset_time=True)
+
+@patch("geminiai_cli.reset_helpers.save_reset_time_from_output")
+def test_run_cmd_safe_timeout_capture(mock_save):
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("ls", 1, output=b"out", stderr=b"err")):
+        reset_helpers.run_cmd_safe("ls", detect_reset_time=True)
+        mock_save.assert_called()
+
+@patch("geminiai_cli.reset_helpers.save_reset_time_from_output")
+def test_run_cmd_safe_exception_capture(mock_save):
+    with patch("subprocess.run", side_effect=Exception("error")):
+        reset_helpers.run_cmd_safe("ls", detect_reset_time=True)
+        mock_save.assert_called()
+
+def test_load_store_skip_invalid_entries():
+    data = '[{"reset_ist": "invalid"}, {"reset_ist": "2023-01-01T10:00:00+05:30"}]'
+    with patch("os.path.exists", return_value=True):
+        with patch("builtins.open", mock_open(read_data=data)):
+            store = reset_helpers._load_store()
+            assert len(store) == 1
+
+def test_load_store_not_list():
+    data = '{}'
+    with patch("os.path.exists", return_value=True):
+        with patch("builtins.open", mock_open(read_data=data)):
+            store = reset_helpers._load_store()
+            assert len(store) == 0
+
+@patch("geminiai_cli.reset_helpers._now_ist")
+def test_compute_next_ist_for_time_12_am(mock_now):
+    mock_now.return_value = datetime(2023, 1, 1, 0, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    dt = reset_helpers._compute_next_ist_for_time(12, 0, "AM")
+    assert dt.hour == 0
+
+@patch("geminiai_cli.reset_helpers._now_ist")
+def test_compute_next_ist_for_time_12_pm(mock_now):
+    mock_now.return_value = datetime(2023, 1, 1, 0, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    dt = reset_helpers._compute_next_ist_for_time(12, 0, "PM")
+    assert dt.hour == 12
+
+@patch("geminiai_cli.reset_helpers._now_ist")
+def test_compute_next_ist_for_time_24h(mock_now):
+    mock_now.return_value = datetime(2023, 1, 1, 0, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    dt = reset_helpers._compute_next_ist_for_time(15, 0)
+    assert dt.hour == 15
+
+@patch("geminiai_cli.reset_helpers.save_reset_time_from_output", return_value=True)
+def test_do_capture_reset_empty_input(mock_save):
+     with patch("sys.stdin.isatty", return_value=True):
+        with patch("builtins.input", return_value=""):
+             # Should error "No input provided"
+             reset_helpers.do_capture_reset()
+
+@patch("geminiai_cli.reset_helpers._load_and_cleanup_store")
+def test_do_list_resets_exception(mock_load):
+    mock_load.return_value = [
+        {"id": "1", "email": "t@t.com", "reset_ist": "invalid"}
+    ]
+    # Should not crash and use raw string
+    reset_helpers.do_list_resets()
+
+@patch("geminiai_cli.reset_helpers.save_reset_time_from_output")
+def test_run_cmd_safe_timeout_bytes(mock_save):
+    # Test timeout with bytes output/stderr to trigger decoding
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("ls", 1, output=b"out", stderr=b"err")):
+        rc, out, err = reset_helpers.run_cmd_safe("ls", detect_reset_time=True)
+        assert out == "out"
+        assert err == "err"
+        mock_save.assert_called()
+
+@patch("geminiai_cli.reset_helpers.save_reset_time_from_output")
+def test_run_cmd_safe_exception_no_detect(mock_save):
+    with patch("subprocess.run", side_effect=Exception("error")):
+        reset_helpers.run_cmd_safe("ls", detect_reset_time=False)
+        mock_save.assert_not_called()
+
+@patch("geminiai_cli.reset_helpers.cleanup_expired", return_value=[{"id": 1}])
+@patch("geminiai_cli.reset_helpers._load_store", return_value=[])
+@patch("geminiai_cli.reset_helpers.cprint")
+def test_load_and_cleanup_store_removed(mock_cprint, mock_load, mock_cleanup):
+    reset_helpers._load_and_cleanup_store()
+    assert any("Removed 1 expired" in str(args) for args in mock_cprint.call_args_list)
+
+@patch("geminiai_cli.reset_helpers._load_and_cleanup_store")
+def test_do_list_resets_future(mock_load):
+    future = datetime.now(timezone(timedelta(hours=5, minutes=30))) + timedelta(hours=1, minutes=30)
+    mock_load.return_value = [
+        {"id": "1", "email": "t@t.com", "reset_ist": future.isoformat()}
+    ]
+    reset_helpers.do_list_resets()
+    # Output should contain "In 1h 30m" (roughly)
+
+@patch("geminiai_cli.reset_helpers._load_and_cleanup_store")
+@patch("geminiai_cli.reset_helpers.cprint")
+def test_do_next_reset_malformed_entries(mock_cprint, mock_load):
+    # Entries with invalid date should be skipped, and if no valid entries, print "No valid upcoming resets"
+    mock_load.return_value = [
+        {"id": "1", "email": "t@t.com", "reset_ist": "invalid"}
+    ]
+    reset_helpers.do_next_reset()
+    assert any("No valid upcoming resets" in str(args) for args in mock_cprint.call_args_list)

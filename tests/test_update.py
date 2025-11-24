@@ -139,3 +139,105 @@ def test_do_check_update_available_yes(mock_cprint, mock_input, mock_run, mock_d
     do_check_update()
 
     mock_do_update.assert_called_once()
+
+# NEW TESTS
+
+@patch("geminiai_cli.update.run_cmd_safe")
+@patch("geminiai_cli.update.shutil.rmtree")
+@patch("geminiai_cli.update.os.path.exists")
+@patch("geminiai_cli.update.cprint")
+def test_do_update_rmtree_fail(mock_cprint, mock_exists, mock_rmtree, mock_run):
+    # Test lines 37-38: Exception during shutil.rmtree
+
+    mock_run.side_effect = [
+        (0, "", ""), # rm symlink
+        (0, "/usr/lib/node_modules", ""), # npm root
+        (0, "contents", ""), # ls
+        (0, "Success", "") # npm install
+    ]
+
+    mock_exists.return_value = True
+    mock_rmtree.side_effect = Exception("Permission denied")
+
+    do_update()
+
+    assert any("Failed to remove" in str(args) for args in mock_cprint.call_args_list)
+
+
+@patch("geminiai_cli.update.run_cmd_safe")
+@patch("geminiai_cli.update.shutil.rmtree")
+@patch("geminiai_cli.update.os.path.exists")
+@patch("geminiai_cli.update.cprint")
+def test_do_update_ls_fail(mock_cprint, mock_exists, mock_rmtree, mock_run):
+    # Test line 48: ls returned rc!=0
+
+    mock_run.side_effect = [
+        (0, "", ""), # rm symlink
+        (0, "/usr/lib/node_modules", ""), # npm root
+        (1, "", "ls error"), # ls fails
+        (0, "Success", "") # npm install
+    ]
+
+    mock_exists.return_value = True # ensure we enter the if block
+
+    do_update()
+
+    assert any("ls returned rc=1" in str(args) for args in mock_cprint.call_args_list)
+
+
+@patch("geminiai_cli.update.run_cmd_safe")
+@patch("geminiai_cli.update.shutil.rmtree")
+@patch("geminiai_cli.update.os.path.exists")
+@patch("geminiai_cli.update.cprint")
+def test_do_update_all_installs_fail(mock_cprint, mock_exists, mock_rmtree, mock_run):
+    # Test lines 67-74: Update failed even with --unsafe-perm, and npm bin logic
+
+    mock_run.side_effect = [
+        (0, "", ""), # rm symlink
+        (0, "/usr/lib/node_modules", ""), # npm root
+        (0, "contents", ""), # ls
+        (1, "", "install error"), # npm install fail
+        (1, "", "unsafe error"), # unsafe install fail
+        (0, "/usr/bin/npm-bin", "") # npm bin
+    ]
+
+    mock_exists.return_value = True
+
+    do_update()
+
+    assert any("Update failed even with --unsafe-perm" in str(args) for args in mock_cprint.call_args_list)
+    assert any("If gemini is installed here" in str(args) for args in mock_cprint.call_args_list)
+
+
+@patch("geminiai_cli.update.run_cmd_safe")
+@patch("geminiai_cli.update.cprint")
+def test_do_check_update_version_fail(mock_cprint, mock_run):
+    # Test lines 97-100: gemini --version failed
+
+    mock_run.side_effect = [
+        (0, "/bin/gemini", ""), # command -v
+        (1, "", "version error") # gemini --version
+    ]
+
+    do_check_update()
+
+    assert any("Gemini is installed but `gemini --version` failed" in str(args) for args in mock_cprint.call_args_list)
+
+
+@patch("geminiai_cli.update.run_cmd_safe")
+@patch("builtins.input", return_value="n")
+@patch("geminiai_cli.update.cprint")
+def test_do_check_update_npm_view_fail(mock_cprint, mock_input, mock_run):
+    # Test lines 106-109: npm view failed
+
+    mock_run.side_effect = [
+        (0, "/bin/gemini", ""), # command -v
+        (0, "1.0.0", ""), # gemini --version
+        (1, "", "npm view error") # npm view
+    ]
+
+    do_check_update()
+
+    assert any("Could not determine latest version" in str(args) for args in mock_cprint.call_args_list)
+    # Just check if (unknown) appears in arguments
+    assert any("(unknown)" in str(args) for args in mock_cprint.call_args_list)
