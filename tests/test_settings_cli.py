@@ -77,3 +77,11 @@ def test_do_config_unset_fail(mock_cprint, mock_remove):
     mock_remove.return_value = False
     do_config(mock_args(action="unset", key="k"))
     assert any("Key k not found" in str(c) for c in mock_cprint.call_args_list)
+
+@patch("geminiai_cli.settings_cli.list_settings")
+@patch("builtins.print")
+def test_do_config_list_masking_short_value(mock_print, mock_list):
+    mock_list.return_value = {"secret_key": "123"}
+    do_config(mock_args(action="list"))
+    # Values too short for partial masking should be fully masked.
+    assert any("*****" in str(c) for c in mock_print.call_args_list)
