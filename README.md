@@ -1,10 +1,41 @@
+<div align="center">
+  <img src="https://raw.githubusercontent.com/dhruv13x/gemini-cli/main/gemini-cli_logo.png" alt="gemini-cli logo" width="200"/>
+</div>
+
+<div align="center">
+
+<!-- Package Info -->
+[![PyPI version](https://img.shields.io/pypi/v/gemini-cli.svg)](https://pypi.org/project/gemini-cli/)
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
+![Wheel](https://img.shields.io/pypi/wheel/gemini-cli.svg)
+[![Release](https://img.shields.io/badge/release-PyPI-blue)](https://pypi.org/project/gemini-cli/)
+
+<!-- Build & Quality -->
+[![Build status](https://github.com/dhruv13x/gemini-cli/actions/workflows/publish.yml/badge.svg)](https://github.com/dhruv13x/gemini-cli/actions/workflows/publish.yml)
+[![Codecov](https://codecov.io/gh/dhruv13x/gemini-cli/graph/badge.svg)](https://codecov.io/gh/dhruv13x/gemini-cli)
+[![Test Coverage](https://img.shields.io/badge/coverage-90%25%2B-brightgreen.svg)](https://github.com/dhruv13x/gemini-cli/actions/workflows/test.yml)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/badge/linting-ruff-yellow.svg)](https://github.com/astral-sh/ruff)
+![Security](https://img.shields.io/badge/security-CodeQL-blue.svg)
+
+<!-- Usage -->
+![Downloads](https://img.shields.io/pypi/dm/gemini-cli.svg)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/gemini-cli.svg)](https://pypistats.org/packages/gemini-cli)
+![OS](https://img.shields.io/badge/os-Linux%20%7C%20macOS%20%7C%20Windows-blue.svg)
+[![Python Versions](https://img.shields.io/pypi/pyversions/gemini-cli.svg)](https://pypi.org/project/gemini-cli/)
+
+<!-- License -->
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+<!-- Docs -->
+[![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://your-docs-link)
+
+</div>
+
+
 # Gemini CLI Helper
 
 A command-line interface (CLI) tool that acts as a wrapper around the official Gemini CLI, adding useful features for managing accounts, backups, and rate limits.
-
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/your-repo/gemini-cli-helper)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 
 ## About
 
