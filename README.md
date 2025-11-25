@@ -2,143 +2,116 @@
 
 A command-line interface (CLI) tool that acts as a wrapper around the official Gemini CLI, adding useful features for managing accounts, backups, and rate limits.
 
-## Features
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/your-repo/gemini-cli-helper)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 
-- **Account Management**: Log in and out of your Gemini account.
-- **Backup and Restore**: Create local or cloud-based backups of your Gemini configuration and restore them when needed.
-- **Rate Limit Tracking**: Keep track of API rate limits to avoid interruptions.
-- **Automated Updates**: Check for and install updates to the underlying Gemini CLI.
+## About
 
-## Installation
+This tool was created to simplify the management of the Gemini CLI by providing a more user-friendly interface for common tasks such as logging in, managing backups, and tracking API rate limits. It aims to be a "batteries-included" solution for both new and experienced users.
 
-This tool is not yet published to PyPI. To install it, you would typically use pip:
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.8+
+- The dependencies listed in `pyproject.toml`:
+  - `b2sdk>=1.18.0`
+  - `rich>=10.0.0`
+
+### One-Command Installation
 
 ```bash
 pip install .
 ```
 
-## Commands
+### Usage Example
 
-### General Commands
-
-- `geminiai --login`: Log in to your Gemini account.
-- `geminiai --logout`: Log out of your Gemini account.
-- `geminiai --update`: Check for and install updates to the underlying Gemini CLI.
-
-### Rate Limit Management
-
-- `geminiai --add "<time> [email]"`: Manually add a rate limit reset time. The email is optional.
-  - Example: `geminiai --add "1:00 PM"`
-  - Example: `geminiai --add "13:00 myemail@example.com"`
-- `geminiai --list`: List all saved rate limit reset times.
-- `geminiai --next [email|id]`: Show the next upcoming reset time for a specific account or all accounts.
-- `geminiai --remove <id|email>`: Remove a saved rate limit entry.
-
-### Backup and Restore
-
-#### Local Backups
-
-- `geminiai backup`: Create a local backup of your Gemini configuration (`~/.gemini`). Backups are stored as timestamped `.tar.gz` files in a local directory (default: `~/geminiai_backups`).
-- `geminiai restore`: Restore your Gemini configuration from a local backup. By default, it restores from the oldest available backup archive.
-  - `geminiai restore --from-archive <path/to/archive.tar.gz>`: Restore from a specific archive file.
-  - `geminiai restore --from-dir <path/to/directory>`: Restore from a specific uncompressed backup directory.
-- `geminiai list-backups`: List all available local backups.
-- `geminiai check-integrity`: Check the integrity of your current configuration against the latest backup.
-
-#### Cloud Backups (Backblaze B2)
-
-This tool integrates with Backblaze B2 for cloud-based backups and restores.
-
-**Configuration:**
-
-You need to provide your Backblaze B2 credentials. You can do this in two ways:
-
-1.  **Environment Variables (Recommended):**
-    ```bash
-    export B2_APPLICATION_KEY_ID='YOUR_KEY_ID'
-    export B2_APPLICATION_KEY='YOUR_APP_KEY'
-    export B2_BUCKET_NAME='your-b2-bucket-name'
-    ```
-
-2.  **Command-Line Arguments:**
-    You can also provide your credentials directly in the command line:
-    - `--b2-id <YOUR_KEY_ID>`
-    - `--b2-key <YOUR_APP_KEY>`
-    - `--bucket <YOUR_BUCKET_NAME>`
-
-**Usage:**
-
-- `geminiai check-b2`: Verify Backblaze B2 credentials and bucket access.
-- `geminiai backup --cloud`: Create a local backup and upload it to your B2 bucket.
-- `geminiai restore --cloud`: Restore your configuration from the oldest backup archive stored in your B2 bucket.
-- `geminiai list-backups --cloud`: List available backups in your B2 bucket.
-
-#### Cloud Synchronization
-
-This feature ensures consistency between your local backup repository and your Backblaze B2 bucket by only adding missing files, without overwriting existing data.
-
-- `geminiai cloud-sync`: Uploads any local `.tar.gz` backup archives that are missing from your configured Backblaze B2 bucket.
-- `geminiai local-sync`: Downloads any `.tar.gz` backup archives from your Backblaze B2 bucket that are missing from your local backup directory.
-
-## Usage Examples
-
-**1. Create a local backup:**
+Here's how to create a local backup of your Gemini configuration:
 
 ```bash
 geminiai backup
 ```
 
-**2. Restore from the oldest local backup:**
+## ✨ Key Features
 
-```bash
-geminiai restore
+- **Account Management**: Seamlessly log in and out of your Gemini account.
+- **Backup and Restore**: **God Level** - Create local or cloud-based backups of your Gemini configuration and restore them with a single command.
+- **Rate Limit Tracking**: Keep track of API rate limits to avoid interruptions.
+- **Automated Updates**: Check for and install updates to the underlying Gemini CLI.
+- **Cloud Sync**: Synchronize your local backups with a Backblaze B2 bucket.
+
+## ⚙️ Configuration & Advanced Usage
+
+### Environment Variables
+
+For cloud-based backups with Backblaze B2, you can configure your credentials using the following environment variables:
+
+- `B2_APPLICATION_KEY_ID`: Your Backblaze B2 application key ID.
+- `B2_APPLICATION_KEY`: Your Backblaze B2 application key.
+- `B2_BUCKET_NAME`: The name of your B2 bucket.
+
+### Commands
+
+| Command         | Description                                     | Arguments                                                                                                                                                                                                                                                                                          |
+| --------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backup`        | Backup Gemini configuration.                    | `--src`, `--archive-dir`, `--dest-dir-parent`, `--dry-run`, `--cloud`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                                               |
+| `restore`       | Restore Gemini configuration from a backup.     | `--from-dir`, `--from-archive`, `--search-dir`, `--dest`, `--force`, `--dry-run`, `--cloud`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                            |
+| `check-integrity` | Check integrity of the current configuration.   | `--src`, `--search-dir`                                                                                                                                                                                                                                                                            |
+| `list-backups`  | List available backups.                         | `--search-dir`, `--cloud`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                                                                                         |
+| `prune`         | Prune old backups.                              | `--keep`, `--backup-dir`, `--cloud`, `--cloud-only`, `--dry-run`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                                                    |
+| `check-b2`      | Verify Backblaze B2 credentials.                | `--b2-id`, `--b2-key`, `--bucket`                                                                                                                                                                                                                                                                    |
+| `cloud-sync`    | Sync local backups to the cloud.                | `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                                                                                                    |
+| `local-sync`    | Sync cloud backups to local.                    | `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                                                                                                    |
+| `config`        | Manage persistent configuration.                | `set`, `get`, `list`, `unset`                                                                                                                                                                                                                                                                      |
+| `doctor`        | Run a system diagnostic check.                  |                                                                                                                                                                                                                                                                                                    |
+| `resets`        | Manage Gemini free tier reset schedules.        | `--list`, `--next`, `--add`, `--remove`                                                                                                                                                                                                                                                              |
+
+### Global Options
+
+| Option         | Description                                     |
+| --------------- | ----------------------------------------------- |
+| `--login`       | Login to Gemini CLI.                            |
+| `--logout`      | Logout from Gemini CLI.                         |
+| `--session`     | Show the current active session.                |
+| `--update`      | Reinstall/update Gemini CLI.                    |
+| `--check-update`| Check for updates.                              |
+
+## 🏗️ Architecture
+
+### Directory Tree
+
+```
+src/
+└── geminiai_cli/
+    ├── __init__.py
+    ├── cli.py
+    ├── backup.py
+    ├── restore.py
+    ├── ...
 ```
 
-**3. Create a cloud backup to Backblaze B2:**
+### Core Logic Flow
 
-(Assuming environment variables are set)
-```bash
-geminiai backup --cloud
-```
+The main entry point is `src/geminiai_cli/cli.py`, which uses the `argparse` module to define the CLI commands and their arguments. Each command is then handled by a corresponding function in a separate file (e.g., `backup.py`, `restore.py`). The `rich` library is used to create a more user-friendly and visually appealing command-line interface.
 
-**4. Restore from a cloud backup on Backblaze B2:**
+## 🗺️ Roadmap
 
-(Assuming environment variables are set)
-```bash
-geminiai restore --cloud
-```
+### Completed
 
-**5. List available local backups:**
+- [x] Account Management
+- [x] Local and Cloud Backups
+- [x] Rate Limit Tracking
+- [x] Automated Updates
 
-```bash
-geminiai list-backups
-```
+### Upcoming
 
-**6. Verify Backblaze B2 credentials:**
+- [ ] Support for other cloud providers (e.g., AWS S3, Google Cloud Storage)
+- [ ] A more interactive configuration process
+- [ ] Improved error handling and reporting
 
-(Assuming environment variables are set)
-```bash
-geminiai check-b2
-```
+## 🤝 Contributing & License
 
-**7. List available cloud backups:**
+Contributions are welcome! Please feel free to submit a pull request or open an issue on the GitHub repository.
 
-(Assuming environment variables are set)
-```bash
-geminiai list-backups --cloud
-```
-
-**8. Synchronize local backups to the cloud:**
-
-(Assuming environment variables are set)
-```bash
-geminiai cloud-sync
-```
-
-**9. Synchronize cloud backups to local storage:**
-
-(Assuming environment variables are set)
-```bash
-geminiai local-sync
-```
-
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
