@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/restore.py
+
 """
 restore.py - Safe restore that picks the oldest timestamped backup by default.
 

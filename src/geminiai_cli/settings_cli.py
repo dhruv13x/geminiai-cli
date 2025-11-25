@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/settings_cli.py
+
 
 import argparse
 from .settings import set_setting, get_setting, list_settings, remove_setting

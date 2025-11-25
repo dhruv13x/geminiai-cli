@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/list_backups.py
+
 """
 list_backups.py
 

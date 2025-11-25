@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/b2.py
+
 
 import os
 import sys

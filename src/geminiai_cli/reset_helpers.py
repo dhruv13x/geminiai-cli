@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/reset_helpers.py
+
 """
 reset_helpers.py
 

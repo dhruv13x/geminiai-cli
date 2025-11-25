@@ -1,3 +1,5 @@
+# tests/test_update.py
+
 import pytest
 from unittest.mock import patch, MagicMock
 from geminiai_cli.update import do_update, do_check_update

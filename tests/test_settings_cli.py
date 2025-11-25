@@ -1,3 +1,5 @@
+# tests/test_settings_cli.py
+
 import pytest
 from unittest.mock import patch, MagicMock
 from geminiai_cli.settings_cli import do_config

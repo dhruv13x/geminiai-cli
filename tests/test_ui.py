@@ -1,3 +1,5 @@
+# tests/test_ui.py
+
 import pytest
 from unittest.mock import patch
 from geminiai_cli.ui import cprint, banner

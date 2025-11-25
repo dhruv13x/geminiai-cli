@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/backup.py
+
 """
 backup.py - automatic Gemini CLI backup that names backups with timestamp + email
 

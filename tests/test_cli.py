@@ -1,3 +1,5 @@
+# tests/test_cli.py
+
 import pytest
 from unittest.mock import patch, MagicMock
 from geminiai_cli.cli import main, print_rich_help, RichHelpParser

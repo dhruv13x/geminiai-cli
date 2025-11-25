@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/update.py
+
 
 import os
 import re

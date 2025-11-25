@@ -1,3 +1,5 @@
+# tests/test_logout.py
+
 import pytest
 from unittest.mock import patch, MagicMock
 from geminiai_cli.logout import do_logout

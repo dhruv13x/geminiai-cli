@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/check_b2.py
+
 """
 check_b2.py
 

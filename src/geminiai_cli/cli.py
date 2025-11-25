@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/cli.py
+
 
 import argparse
 import sys
@@ -6,6 +8,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.align import Align
 from .ui import banner, cprint, console
+from .banner import print_logo
 from .login import do_login
 from .logout import do_logout
 from .session import do_session
@@ -29,7 +32,7 @@ from .sync import cloud_sync, local_sync
 
 def print_rich_help():
     """Prints a beautiful Rich-formatted help screen for the MAIN command."""
-    banner()
+ #    print_logo()
     
     console.print("[bold white]Usage:[/] [bold cyan]alice[/] [dim][OPTIONS][/] [bold magenta]COMMAND[/] [dim][ARGS]...[/]\n")
 
@@ -131,6 +134,7 @@ class RichHelpParser(argparse.ArgumentParser):
         console.print(Panel(table, title="[bold green]Arguments & Options[/]", border_style="cyan"))
 
 def main():
+    print_logo()
     # Handle main help manually to use Rich if no args or explicit help on main
     if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ["-h", "--help"]):
         print_rich_help()

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/integrity.py
+
 """
 integrity.py - Check integrity of current configuration against the latest backup.
 """

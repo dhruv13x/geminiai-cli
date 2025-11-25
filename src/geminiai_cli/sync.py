@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/sync.py
+
 """
 sync.py - Synchronize backups between local storage and Cloud (B2).
 

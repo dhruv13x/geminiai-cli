@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/prune.py
+
 
 import os
 import sys

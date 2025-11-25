@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# src/geminiai_cli/logout.py
+
 
 import os
 import re
