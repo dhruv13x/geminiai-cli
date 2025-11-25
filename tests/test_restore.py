@@ -463,3 +463,21 @@ def test_main_cleanup_temp_download(mock_remove, mock_mkdtemp, mock_rmtree, mock
 
             restore.main()
             mock_remove.assert_called()
+
+@patch("geminiai_cli.restore.acquire_lock")
+@patch("geminiai_cli.restore.run")
+@patch("os.path.exists", return_value=True)
+@patch("shutil.rmtree")
+@patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
+def test_main_verification_fail_with_stdout(mock_mkdtemp, mock_rmtree, mock_exists, mock_run, mock_lock):
+    with patch("sys.argv", ["restore.py", "--from-archive", "archive.tar.gz"]):
+        # Mock cp run ok
+        # Mock diff run fail (first verify)
+        mock_run.side_effect = [
+            MagicMock(returncode=0), # tar
+            MagicMock(returncode=0), # cp
+            MagicMock(returncode=1, stdout="diff output"), # diff
+        ]
+        with pytest.raises(SystemExit) as e:
+            restore.main()
+        assert e.value.code == 3

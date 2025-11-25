@@ -29,3 +29,12 @@ def test_main_b2_exception(mock_b2):
         mock_b2.side_effect = Exception("Unexpected")
         with pytest.raises(SystemExit):
             check_b2.main()
+
+import runpy
+
+@patch("geminiai_cli.check_b2.get_setting", return_value=None)
+def test_main_entrypoint_no_creds(mock_get_setting):
+    with patch("sys.argv", ["check_b2.py"]):
+        with pytest.raises(SystemExit) as e:
+            runpy.run_module("geminiai_cli.check_b2", run_name="__main__")
+    assert e.value.code == 1
