@@ -6,7 +6,8 @@ readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "b2sdk>=1.18.0",
-    "rich>=10.0.0"
+    "rich>=10.0.0",
+    "tomli>=2.0.0; python_version < '3.11'"
 ]
 
 [project.scripts]

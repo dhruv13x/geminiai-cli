@@ -29,6 +29,7 @@ from .integrity import main as integrity_main
 from .list_backups import main as list_backups_main
 from .check_b2 import main as check_b2_main
 from .sync import cloud_sync, local_sync
+from .project_config import load_project_config, normalize_config_keys
 
 def print_rich_help():
     """Prints a beautiful Rich-formatted help screen for the MAIN command."""
@@ -141,6 +142,14 @@ def main():
 
     # Use RichHelpParser for the main parser
     parser = RichHelpParser(description="Gemini AI Automation Tool", add_help=False)
+    
+    # Load project config (pyproject.toml / geminiai.toml)
+    project_defaults = load_project_config()
+    if project_defaults:
+        # Normalize keys (kebab-case -> snake_case)
+        project_defaults = normalize_config_keys(project_defaults)
+        parser.set_defaults(**project_defaults)
+
     subparsers = parser.add_subparsers(dest="command", help="Available commands", parser_class=RichHelpParser)
 
     # Keep existing top-level arguments
@@ -212,6 +221,7 @@ def main():
     config_parser.add_argument("config_action", choices=["set", "get", "list", "unset"], help="Action to perform")
     config_parser.add_argument("key", nargs="?", help="Setting key")
     config_parser.add_argument("value", nargs="?", help="Setting value")
+    config_parser.add_argument("--force", action="store_true", help="Force save sensitive keys without confirmation (automation mode)")
 
     # Resets command (New subcommand for reset management)
     resets_parser = subparsers.add_parser("resets", help="Manage Gemini free tier reset schedules.")

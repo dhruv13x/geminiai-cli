@@ -3,9 +3,10 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from geminiai_cli.settings_cli import do_config
+import sys
 
-def mock_args(action="list", key=None, value=None):
-    return MagicMock(config_action=action, key=key, value=value)
+def mock_args(action="list", key=None, value=None, force=False):
+    return MagicMock(config_action=action, key=key, value=value, force=force)
 
 @patch("geminiai_cli.settings_cli.list_settings")
 @patch("geminiai_cli.settings_cli.cprint")
@@ -15,12 +16,8 @@ def test_do_config_list(mock_cprint, mock_list):
     with patch("builtins.print") as mock_print:
         do_config(mock_args(action="list"))
 
-        # Check masking
         found_masked = False
         for call in mock_print.call_args_list:
-            # The exact string is: '  \x1b[92;1msecret_key\x1b[0m: se*******45'
-            # My previous assertion "se***45" was not matching because there are 7 asterisks.
-            # secret12345 (11 chars) -> se (2) + * (11-4=7) + 45 (2) = se*******45
             if "se*******45" in str(call):
                  found_masked = True
         assert found_masked
@@ -34,16 +31,53 @@ def test_do_config_list_empty(mock_cprint, mock_list):
 
 @patch("geminiai_cli.settings_cli.cprint")
 def test_do_config_no_key(mock_cprint):
-    # Action set/get/unset requires key
     do_config(mock_args(action="set", key=None))
     assert any("Key required" in str(c) for c in mock_cprint.call_args_list)
 
 @patch("geminiai_cli.settings_cli.set_setting")
 @patch("geminiai_cli.settings_cli.cprint")
 def test_do_config_set(mock_cprint, mock_set):
+    # Non-sensitive key, should just work
     do_config(mock_args(action="set", key="k", value="v"))
     mock_set.assert_called_with("k", "v")
     assert any("Set k = v" in str(c) for c in mock_cprint.call_args_list)
+
+@patch("geminiai_cli.settings_cli.set_setting")
+@patch("geminiai_cli.settings_cli.cprint")
+def test_do_config_set_sensitive_interactive_yes(mock_cprint, mock_set):
+    # Sensitive key, Interactive, User says Yes
+    with patch("sys.stdin.isatty", return_value=True):
+        with patch("builtins.input", return_value="y"):
+            do_config(mock_args(action="set", key="b2_key", value="secret"))
+            mock_set.assert_called_with("b2_key", "secret")
+
+@patch("geminiai_cli.settings_cli.set_setting")
+@patch("geminiai_cli.settings_cli.cprint")
+def test_do_config_set_sensitive_interactive_no(mock_cprint, mock_set):
+    # Sensitive key, Interactive, User says No
+    with patch("sys.stdin.isatty", return_value=True):
+        with patch("builtins.input", return_value="n"):
+            do_config(mock_args(action="set", key="b2_key", value="secret"))
+            mock_set.assert_not_called()
+            assert any("Aborted" in str(c) for c in mock_cprint.call_args_list)
+
+@patch("geminiai_cli.settings_cli.set_setting")
+@patch("geminiai_cli.settings_cli.cprint")
+def test_do_config_set_sensitive_non_interactive_no_force(mock_cprint, mock_set):
+    # Sensitive key, Non-Interactive, No Force -> Fail
+    with patch("sys.stdin.isatty", return_value=False):
+        with pytest.raises(SystemExit) as e:
+            do_config(mock_args(action="set", key="b2_key", value="secret", force=False))
+        assert e.value.code == 1
+        mock_set.assert_not_called()
+
+@patch("geminiai_cli.settings_cli.set_setting")
+@patch("geminiai_cli.settings_cli.cprint")
+def test_do_config_set_sensitive_non_interactive_with_force(mock_cprint, mock_set):
+    # Sensitive key, Non-Interactive, With Force -> Success
+    with patch("sys.stdin.isatty", return_value=False):
+        do_config(mock_args(action="set", key="b2_key", value="secret", force=True))
+        mock_set.assert_called_with("b2_key", "secret")
 
 @patch("geminiai_cli.settings_cli.cprint")
 def test_do_config_set_no_value(mock_cprint):
