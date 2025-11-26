@@ -3,25 +3,10 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import os
-from geminiai_cli.sync import cloud_sync, local_sync, get_b2_credentials, get_local_backups, get_cloud_backups
+from geminiai_cli.sync import cloud_sync, local_sync, get_local_backups, get_cloud_backups
 
 def mock_args(backup_dir="/tmp/backups", b2_id=None, b2_key=None, bucket=None):
     return MagicMock(backup_dir=backup_dir, b2_id=b2_id, b2_key=b2_key, bucket=bucket)
-
-@patch("geminiai_cli.sync.get_setting")
-def test_get_b2_credentials_success(mock_get_setting):
-    args = mock_args(b2_id="id", b2_key="key", bucket="bucket")
-    id_, key, bucket = get_b2_credentials(args)
-    assert id_ == "id"
-    assert key == "key"
-    assert bucket == "bucket"
-
-@patch("geminiai_cli.sync.get_setting")
-def test_get_b2_credentials_fail(mock_get_setting):
-    mock_get_setting.return_value = None
-    args = mock_args()
-    with pytest.raises(SystemExit):
-        get_b2_credentials(args)
 
 @patch("os.path.isdir", return_value=True)
 @patch("os.listdir")
@@ -59,7 +44,7 @@ def test_get_cloud_backups_fail():
         get_cloud_backups(mock_b2)
 
 @patch("geminiai_cli.sync.B2Manager")
-@patch("geminiai_cli.sync.get_b2_credentials")
+@patch("geminiai_cli.sync.resolve_credentials")
 @patch("geminiai_cli.sync.get_local_backups")
 @patch("geminiai_cli.sync.get_cloud_backups")
 @patch("geminiai_cli.sync.cprint")
@@ -76,7 +61,7 @@ def test_cloud_sync_upload(mock_cprint, mock_get_cloud, mock_get_local, mock_cre
     mock_b2.upload.assert_called()
 
 @patch("geminiai_cli.sync.B2Manager")
-@patch("geminiai_cli.sync.get_b2_credentials")
+@patch("geminiai_cli.sync.resolve_credentials")
 @patch("geminiai_cli.sync.get_local_backups")
 @patch("geminiai_cli.sync.get_cloud_backups")
 @patch("geminiai_cli.sync.cprint")
@@ -93,7 +78,7 @@ def test_cloud_sync_no_upload(mock_cprint, mock_get_cloud, mock_get_local, mock_
     mock_b2.upload.assert_not_called()
 
 @patch("geminiai_cli.sync.B2Manager")
-@patch("geminiai_cli.sync.get_b2_credentials")
+@patch("geminiai_cli.sync.resolve_credentials")
 @patch("geminiai_cli.sync.get_local_backups")
 @patch("geminiai_cli.sync.get_cloud_backups")
 @patch("geminiai_cli.sync.cprint")
@@ -111,7 +96,7 @@ def test_local_sync_download(mock_cprint, mock_get_cloud, mock_get_local, mock_c
     mock_b2.download.assert_called()
 
 @patch("geminiai_cli.sync.B2Manager")
-@patch("geminiai_cli.sync.get_b2_credentials")
+@patch("geminiai_cli.sync.resolve_credentials")
 @patch("geminiai_cli.sync.get_local_backups")
 @patch("geminiai_cli.sync.get_cloud_backups")
 @patch("geminiai_cli.sync.cprint")

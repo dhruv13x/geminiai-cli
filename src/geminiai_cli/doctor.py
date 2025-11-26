@@ -5,12 +5,14 @@
 import os
 import shutil
 import urllib.request
+import argparse
 from rich.console import Console
 from rich.table import Table
 from .settings import get_setting
 from .b2 import B2Manager
 from .ui import banner
 from .config import DEFAULT_BACKUP_DIR
+from .credentials import resolve_credentials
 
 console = Console()
 
@@ -55,9 +57,9 @@ def do_doctor():
         table.add_row("Network", "[bold red]FAIL[/]", "No internet connection")
 
     # B2
-    key_id = get_setting("b2_id")
-    app_key = get_setting("b2_key")
-    bucket = get_setting("bucket")
+    # Mock args for resolve_credentials (none passed via CLI for doctor usually)
+    dummy_args = argparse.Namespace(b2_id=None, b2_key=None, bucket=None)
+    key_id, app_key, bucket = resolve_credentials(dummy_args, allow_fail=True)
     
     if key_id and app_key and bucket:
         try:

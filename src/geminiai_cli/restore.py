@@ -33,6 +33,7 @@ from typing import Optional, Tuple
 from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR
 from .b2 import B2Manager
 from .settings import get_setting
+from .credentials import resolve_credentials
 ...
 LOCKFILE = "/var/lock/gemini-backup.lock"
 
@@ -124,13 +125,7 @@ def main():
 
     # --- NEW CODE BLOCK: CLOUD DISCOVERY ---
     if args.cloud:
-        key_id = args.b2_id or os.environ.get("GEMINI_B2_KEY_ID") or get_setting("b2_id")
-        app_key = args.b2_key or os.environ.get("GEMINI_B2_APP_KEY") or get_setting("b2_key")
-        bucket_name = args.bucket or os.environ.get("GEMINI_B2_BUCKET") or get_setting("bucket")
-
-        if not (key_id and app_key and bucket_name):
-            print("[ERROR] Cloud restore requested but credentials missing.")
-            sys.exit(1)
+        key_id, app_key, bucket_name = resolve_credentials(args)
 
         b2 = B2Manager(key_id, app_key, bucket_name)
         

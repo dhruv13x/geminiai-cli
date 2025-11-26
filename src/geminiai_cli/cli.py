@@ -34,7 +34,7 @@ def print_rich_help():
     """Prints a beautiful Rich-formatted help screen for the MAIN command."""
  #    print_logo()
     
-    console.print("[bold white]Usage:[/] [bold cyan]alice[/] [dim][OPTIONS][/] [bold magenta]COMMAND[/] [dim][ARGS]...[/]\n")
+    console.print("[bold white]Usage:[/] [bold cyan]geminiai[/] [dim][OPTIONS][/] [bold magenta]COMMAND[/] [dim][ARGS]...[/]\n")
 
     # Commands Table
     cmd_table = Table(show_header=False, box=None, padding=(0, 2))
@@ -99,12 +99,12 @@ class RichHelpParser(argparse.ArgumentParser):
         # we might want to use the specialized print_rich_help() for the fancy banner.
         # However, implementing a generic one is better for subcommands.
         
-        if self.description and "Alice - Gemini AI" in self.description:
+        if self.description and "Gemini AI Automation Tool" in self.description:
              # This is likely the main parser
              print_rich_help()
              return
 
-        # For Subcommands (e.g., 'alice backup')
+        # For Subcommands (e.g., 'geminiai backup')
         console.print(f"[bold cyan]Command:[/ ] [bold magenta]{self.prog}[/]\n")
         if self.description:
             console.print(f"[italic]{self.description}[/]\n")
@@ -140,7 +140,7 @@ def main():
         print_rich_help()
 
     # Use RichHelpParser for the main parser
-    parser = RichHelpParser(description="Alice - Gemini AI Automation Tool", add_help=False)
+    parser = RichHelpParser(description="Gemini AI Automation Tool", add_help=False)
     subparsers = parser.add_subparsers(dest="command", help="Available commands", parser_class=RichHelpParser)
 
     # Keep existing top-level arguments
@@ -217,7 +217,7 @@ def main():
     resets_parser = subparsers.add_parser("resets", help="Manage Gemini free tier reset schedules.")
     resets_parser.add_argument("--list", action="store_true", help="List saved schedules")
     resets_parser.add_argument("--next", nargs="?", const="*ALL*", help="Show next usage time. Optionally pass email or id.")
-    resets_parser.add_argument("--add", nargs="?", const="", help="Add time manually. Example: --add '01:00 PM alice@example.com'")
+    resets_parser.add_argument("--add", nargs="?", const="", help="Add time manually. Example: --add '01:00 PM user@example.com'")
     resets_parser.add_argument("--remove", nargs=1, help="Remove saved entry by id or email.")
 
     # Doctor command

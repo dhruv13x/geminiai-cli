@@ -11,6 +11,7 @@ from .ui import cprint, NEON_GREEN, NEON_RED, NEON_YELLOW, NEON_CYAN
 from .settings import get_setting
 from .b2 import B2Manager
 from .config import TIMESTAMPED_DIR_REGEX
+from .credentials import resolve_credentials
 
 def parse_ts(name):
     m = TIMESTAMPED_DIR_REGEX.match(name)
@@ -84,9 +85,7 @@ def do_prune(args):
 
     # 2. Cloud Prune
     if args.cloud or args.cloud_only:
-        key_id = args.b2_id or os.environ.get("GEMINI_B2_KEY_ID") or get_setting("b2_id")
-        app_key = args.b2_key or os.environ.get("GEMINI_B2_APP_KEY") or get_setting("b2_key")
-        bucket_name = args.bucket or os.environ.get("GEMINI_B2_BUCKET") or get_setting("bucket")
+        key_id, app_key, bucket_name = resolve_credentials(args)
 
         if key_id and app_key and bucket_name:
             cprint(NEON_CYAN, f"\n[CLOUD] Scanning B2 Bucket: {bucket_name}...")

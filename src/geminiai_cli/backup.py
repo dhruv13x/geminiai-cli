@@ -31,6 +31,7 @@ from typing import Optional
 from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR
 from .b2 import B2Manager
 from .settings import get_setting
+from .credentials import resolve_credentials
 
 LOCKFILE = "/var/lock/gemini-backup.lock"
 
@@ -196,18 +197,12 @@ def main():
         
         # --- NEW CODE BLOCK: CLOUD UPLOAD ---
         if args.cloud:
-            # Resolve credentials (CLI arg > Env Var > Config)
-            key_id = args.b2_id or os.environ.get("GEMINI_B2_KEY_ID") or get_setting("b2_id")
-            app_key = args.b2_key or os.environ.get("GEMINI_B2_APP_KEY") or get_setting("b2_key")
-            bucket = args.bucket or os.environ.get("GEMINI_B2_BUCKET") or get_setting("bucket")
+            # Resolve credentials using centralized logic (CLI > Doppler > Env > Config)
+            key_id, app_key, bucket = resolve_credentials(args)
 
-            if not (key_id and app_key and bucket):
-                print("[ERROR] Cloud upload requested but credentials missing.")
-                print("Provide --b2-id, --b2-key, --bucket OR set env vars OR use 'geminiai config set ...'.")
-            else:
-                b2 = B2Manager(key_id, app_key, bucket)
-                # Upload the tar.gz we just created
-                b2.upload(archive_path, remote_name=os.path.basename(archive_path))
+            b2 = B2Manager(key_id, app_key, bucket)
+            # Upload the tar.gz we just created
+            b2.upload(archive_path, remote_name=os.path.basename(archive_path))
         # ------------------------------------
 
         print("Backup complete.")

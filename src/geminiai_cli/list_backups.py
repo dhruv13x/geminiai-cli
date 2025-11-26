@@ -13,6 +13,7 @@ from .ui import cprint, NEON_CYAN, NEON_YELLOW, NEON_RED
 from .b2 import B2Manager
 from .settings import get_setting
 from .config import DEFAULT_BACKUP_DIR
+from .credentials import resolve_credentials
 
 def main():
     parser = argparse.ArgumentParser(description="List available Gemini backups.")
@@ -24,14 +25,7 @@ def main():
     args = parser.parse_args()
 
     if args.cloud:
-        key_id = args.b2_id or os.environ.get("GEMINI_B2_KEY_ID") or get_setting("b2_id")
-        app_key = args.b2_key or os.environ.get("GEMINI_B2_APP_KEY") or get_setting("b2_key")
-        bucket_name = args.bucket or os.environ.get("GEMINI_B2_BUCKET") or get_setting("bucket")
-
-        if not (key_id and app_key and bucket_name):
-            cprint(NEON_RED, "[ERROR] Cloud listing requested but credentials or bucket name missing.")
-            cprint(NEON_RED, "Provide --b2-id, --b2-key, --bucket OR set environment variables OR use 'geminiai config set ...'.")
-            sys.exit(1)
+        key_id, app_key, bucket_name = resolve_credentials(args)
 
         b2 = B2Manager(key_id, app_key, bucket_name)
         cprint(NEON_CYAN, f"Available backups in B2 bucket: {bucket_name}:")

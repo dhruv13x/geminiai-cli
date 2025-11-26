@@ -100,13 +100,9 @@ def test_do_prune_cloud(mock_cprint, mock_get_setting, mock_b2_class):
 def test_do_prune_cloud_no_creds(mock_cprint):
     args = mock_args(cloud_only=True) # Forces cloud check
     with patch("geminiai_cli.prune.get_setting", return_value=None):
-        do_prune(args)
-        # Should verify error message
-        found = False
-        for call in mock_cprint.call_args_list:
-             if len(call[0]) > 1 and "Cloud credentials missing" in call[0][1]:
-                 found = True
-        assert found
+        with pytest.raises(SystemExit) as e:
+            do_prune(args)
+        assert e.value.code == 1
 
 @patch("geminiai_cli.prune.B2Manager")
 @patch("geminiai_cli.prune.cprint")
@@ -154,11 +150,12 @@ def test_do_prune_local_dir_not_found(mock_cprint, mock_exists):
 @patch("geminiai_cli.prune.cprint")
 def test_do_prune_cloud_skip_no_creds(mock_cprint):
     # Cloud requested via --cloud (not cloud_only), so local runs too.
-    # If creds missing, it should print warning but not error.
+    # If creds missing, resolve_credentials exits.
     args = mock_args(cloud=True) # b2_id=None
     with patch("geminiai_cli.prune.get_setting", return_value=None):
-        do_prune(args)
-        assert any("Skipping (credentials not set)" in str(args) for args in mock_cprint.call_args_list)
+        with pytest.raises(SystemExit) as e:
+            do_prune(args)
+        assert e.value.code == 1
 
 @patch("geminiai_cli.prune.B2Manager")
 @patch("geminiai_cli.prune.get_setting")

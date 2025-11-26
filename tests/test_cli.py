@@ -154,7 +154,7 @@ def test_rich_help_parser_print_help_subcommand():
         parser.print_help()
 
 def test_rich_help_parser_print_help_main():
-    parser = RichHelpParser(prog="geminiai", description="Alice - Gemini AI Automation Tool")
+    parser = RichHelpParser(prog="geminiai", description="Gemini AI Automation Tool")
     with patch("sys.exit") as mock_exit:
          parser.print_help()
          # print_rich_help calls exit(0)

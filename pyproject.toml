@@ -11,8 +11,8 @@ dependencies = [
 
 [project.scripts]
 geminiai = "geminiai_cli.cli:main"
-alice = "geminiai_cli.cli:main"
 ga = "geminiai_cli.cli:main"
+geminiai-cli = "geminiai_cli.cli:main"
 
 [build-system]
 requires = ["setuptools", "wheel"]

@@ -14,19 +14,7 @@ import argparse
 from .ui import cprint, NEON_GREEN, NEON_CYAN, NEON_YELLOW, NEON_RED, NEON_MAGENTA
 from .b2 import B2Manager
 from .settings import get_setting
-
-def get_b2_credentials(args):
-    """Resolves B2 credentials from arguments or environment variables or config."""
-    key_id = args.b2_id or os.environ.get("GEMINI_B2_KEY_ID") or get_setting("b2_id")
-    app_key = args.b2_key or os.environ.get("GEMINI_B2_APP_KEY") or get_setting("b2_key")
-    bucket_name = args.bucket or os.environ.get("GEMINI_B2_BUCKET") or get_setting("bucket")
-
-    if not (key_id and app_key and bucket_name):
-        cprint(NEON_RED, "[ERROR] Cloud sync requested but credentials or bucket name missing.")
-        cprint(NEON_RED, "Provide --b2-id, --b2-key, --bucket OR set environment variables OR use 'geminiai config set ...'.")
-        sys.exit(1)
-    
-    return key_id, app_key, bucket_name
+from .credentials import resolve_credentials
 
 def get_local_backups(backup_dir):
     """Returns a set of local backup filenames (only .tar.gz)."""
@@ -54,7 +42,7 @@ def get_cloud_backups(b2):
 
 def cloud_sync(args):
     """Syncs local backups to the cloud (upload missing)."""
-    key_id, app_key, bucket_name = get_b2_credentials(args)
+    key_id, app_key, bucket_name = resolve_credentials(args)
     backup_dir = os.path.abspath(os.path.expanduser(args.backup_dir))
 
     cprint(NEON_MAGENTA, f"Starting Cloud Sync (Local -> B2: {bucket_name})...")
@@ -81,7 +69,7 @@ def cloud_sync(args):
 
 def local_sync(args):
     """Syncs cloud backups to local storage (download missing)."""
-    key_id, app_key, bucket_name = get_b2_credentials(args)
+    key_id, app_key, bucket_name = resolve_credentials(args)
     backup_dir = os.path.abspath(os.path.expanduser(args.backup_dir))
 
     if not os.path.exists(backup_dir):

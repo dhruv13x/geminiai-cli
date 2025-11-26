@@ -151,7 +151,10 @@ def test_main_cloud(mock_rmtree, mock_b2, mock_replace, mock_makedirs, mock_exis
 def test_main_cloud_missing_creds(mock_replace, mock_makedirs, mock_rmtree, mock_b2, mock_exists, mock_run, mock_email, mock_lock):
     with patch("sys.argv", ["backup.py", "--cloud"]): # Missing bucket/id/key
         mock_run.return_value.returncode = 0
-        backup.main()
+        # resolve_credentials calls sys.exit(1) if no creds found
+        with pytest.raises(SystemExit) as e:
+            backup.main()
+        assert e.value.code == 1
         mock_b2.assert_not_called()
 
 # NEW TESTS
