@@ -148,7 +148,9 @@ def test_main_cloud(mock_rmtree, mock_b2, mock_replace, mock_makedirs, mock_exis
 @patch("shutil.rmtree")
 @patch("os.makedirs")
 @patch("os.replace")
-def test_main_cloud_missing_creds(mock_replace, mock_makedirs, mock_rmtree, mock_b2, mock_exists, mock_run, mock_email, mock_lock):
+@patch("geminiai_cli.credentials.get_setting", return_value=None)
+@patch.dict(os.environ, {}, clear=True)
+def test_main_cloud_missing_creds(mock_get_setting, mock_replace, mock_makedirs, mock_rmtree, mock_b2, mock_exists, mock_run, mock_email, mock_lock):
     with patch("sys.argv", ["backup.py", "--cloud"]): # Missing bucket/id/key
         mock_run.return_value.returncode = 0
         # resolve_credentials calls sys.exit(1) if no creds found

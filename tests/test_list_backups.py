@@ -28,7 +28,9 @@ def test_main_cloud_error(mock_b2):
         with pytest.raises(SystemExit):
             list_backups.main()
 
-def test_main_cloud_no_creds():
+@patch("geminiai_cli.credentials.get_setting", return_value=None)
+@patch.dict(os.environ, {}, clear=True)
+def test_main_cloud_no_creds(mock_get_setting):
     with patch("sys.argv", ["list_backups.py", "--cloud"]):
         with pytest.raises(SystemExit):
             list_backups.main()

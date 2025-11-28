@@ -97,12 +97,13 @@ def test_do_prune_cloud(mock_cprint, mock_get_setting, mock_b2_class):
     mock_bucket.delete_file_version.assert_called_with("id1", "2023-01-01_120000-backup.gemini.tar.gz")
 
 @patch("geminiai_cli.prune.cprint")
-def test_do_prune_cloud_no_creds(mock_cprint):
+@patch("geminiai_cli.credentials.get_setting", return_value=None)
+@patch.dict(os.environ, {}, clear=True)
+def test_do_prune_cloud_no_creds(mock_cprint, mock_get_setting):
     args = mock_args(cloud_only=True) # Forces cloud check
-    with patch("geminiai_cli.prune.get_setting", return_value=None):
-        with pytest.raises(SystemExit) as e:
-            do_prune(args)
-        assert e.value.code == 1
+    with pytest.raises(SystemExit) as e:
+        do_prune(args)
+    assert e.value.code == 1
 
 @patch("geminiai_cli.prune.B2Manager")
 @patch("geminiai_cli.prune.cprint")
@@ -148,14 +149,15 @@ def test_do_prune_local_dir_not_found(mock_cprint, mock_exists):
     assert any("Backup directory not found" in str(args) for args in mock_cprint.call_args_list)
 
 @patch("geminiai_cli.prune.cprint")
-def test_do_prune_cloud_skip_no_creds(mock_cprint):
+@patch("geminiai_cli.credentials.get_setting", return_value=None)
+@patch.dict(os.environ, {}, clear=True)
+def test_do_prune_cloud_skip_no_creds(mock_cprint, mock_get_setting):
     # Cloud requested via --cloud (not cloud_only), so local runs too.
     # If creds missing, resolve_credentials exits.
     args = mock_args(cloud=True) # b2_id=None
-    with patch("geminiai_cli.prune.get_setting", return_value=None):
-        with pytest.raises(SystemExit) as e:
-            do_prune(args)
-        assert e.value.code == 1
+    with pytest.raises(SystemExit) as e:
+        do_prune(args)
+    assert e.value.code == 1
 
 @patch("geminiai_cli.prune.B2Manager")
 @patch("geminiai_cli.prune.get_setting")

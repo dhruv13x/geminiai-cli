@@ -3,6 +3,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import sys
+import os
 from geminiai_cli import check_b2
 
 @patch("geminiai_cli.check_b2.B2Manager")
@@ -11,7 +12,9 @@ def test_main_success(mock_b2):
         check_b2.main()
         mock_b2.assert_called_with("i", "k", "b")
 
-def test_main_missing_creds():
+@patch.dict(os.environ, {}, clear=True)
+@patch("geminiai_cli.check_b2.get_setting", return_value=None)
+def test_main_missing_creds(mock_get_setting):
     with patch("sys.argv", ["check_b2.py"]):
         with pytest.raises(SystemExit):
             check_b2.main()
@@ -32,6 +35,7 @@ def test_main_b2_exception(mock_b2):
 
 import runpy
 
+@patch.dict(os.environ, {}, clear=True)
 @patch("geminiai_cli.check_b2.get_setting", return_value=None)
 def test_main_entrypoint_no_creds(mock_get_setting):
     with patch("sys.argv", ["check_b2.py"]):
