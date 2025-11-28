@@ -46,7 +46,8 @@ def test_do_update_fail_then_success(mock_sub_run, mock_cprint, mock_exists, moc
     #    If npm root failed, npm_root defaults to /usr/lib/node_modules.
     #    If os.path.exists returns False (mocked below), ls is skipped.
     # 4. npm install -> fail
-    # 5. npm install unsafe -> success
+    # 5. npm install --force -> fail
+    # 6. npm install unsafe -> success
 
     mock_run.side_effect = [
         (0, "", ""), # rm
@@ -61,7 +62,8 @@ def test_do_update_fail_then_success(mock_sub_run, mock_cprint, mock_exists, moc
 
         (0, "contents", ""), # ls
         (1, "", "EACCESS"), # first install
-        (0, "Success unsafe", "") # second install
+        (1, "", "EACCESS"), # force install
+        (0, "Success unsafe", "") # second install (unsafe)
     ]
 
     # os.path.exists is called for:
@@ -75,7 +77,7 @@ def test_do_update_fail_then_success(mock_sub_run, mock_cprint, mock_exists, moc
 
     do_update()
 
-    assert mock_run.call_count == 5
+    assert mock_run.call_count == 6
     found_unsafe = any("Update succeeded with --unsafe-perm" in str(args) for args in mock_cprint.call_args_list)
     assert found_unsafe
 
@@ -204,6 +206,7 @@ def test_do_update_all_installs_fail(mock_sub_run, mock_cprint, mock_exists, moc
         (0, "/usr/lib/node_modules", ""), # npm root
         (0, "contents", ""), # ls
         (1, "", "install error"), # npm install fail
+        (1, "", "force error"), # force install fail
         (1, "", "unsafe error"), # unsafe install fail
         (0, "/usr/bin/npm-bin", "") # npm bin
     ]
@@ -212,6 +215,7 @@ def test_do_update_all_installs_fail(mock_sub_run, mock_cprint, mock_exists, moc
 
     do_update()
 
+    assert mock_run.call_count == 7
     assert any("Update failed even with --unsafe-perm" in str(args) for args in mock_cprint.call_args_list)
     assert any("If gemini is installed here" in str(args) for args in mock_cprint.call_args_list)
 
