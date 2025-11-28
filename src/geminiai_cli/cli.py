@@ -16,6 +16,7 @@ from .settings_cli import do_config
 from .doctor import do_doctor
 from .prune import do_prune
 from .update import do_update, do_check_update
+from .cleanup import do_cleanup
 from .reset_helpers import (
     do_next_reset,
     do_capture_reset,
@@ -48,6 +49,7 @@ def print_rich_help():
         ("check-integrity", "Check integrity of current configuration"),
         ("list-backups", "List available backups"),
         ("prune", "Prune old backups (local or cloud)"),
+        ("cleanup", "Clear temporary chat history and logs"),
         ("check-b2", "Verify Backblaze B2 credentials"),
         ("cloud-sync", "Sync local backups to Cloud"),
         ("local-sync", "Sync Cloud backups to local"),
@@ -244,6 +246,11 @@ def main():
     prune_parser.add_argument("--b2-id", help="B2 Key ID")
     prune_parser.add_argument("--b2-key", help="B2 App Key")
 
+    # Cleanup command
+    cleanup_parser = subparsers.add_parser("cleanup", help="Clear temporary chat history and logs.")
+    cleanup_parser.add_argument("--dry-run", action="store_true", help="Show what would be deleted without doing it")
+    cleanup_parser.add_argument("--force", action="store_true", help="Skip confirmation prompt")
+
     args = parser.parse_args()
 
     if args.command == "backup":
@@ -312,6 +319,8 @@ def main():
         do_doctor()
     elif args.command == "prune":
         do_prune(args)
+    elif args.command == "cleanup":
+        do_cleanup(args)
     elif args.command == "resets":
         if args.list:
             do_list_resets()

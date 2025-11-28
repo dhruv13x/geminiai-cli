@@ -61,19 +61,30 @@ def do_update():
     else:
         cprint(NEON_RED, f"\n[ERROR] npm install failed (rc={rc_install}).")
         cprint(NEON_RED, (err_install or out_install or "No output."))
-        cprint(NEON_YELLOW, "[INFO] Trying with --unsafe-perm ...")
-        rc2, out2, err2 = run_cmd_safe("npm install -g --unsafe-perm @google/gemini-cli", timeout=300, capture=True, detect_reset_time=False)
-        if rc2 == 0:
-            cprint(NEON_GREEN, "[OK] Update succeeded with --unsafe-perm.")
+
+        cprint(NEON_YELLOW, "[INFO] Trying with --force ...")
+        rc_force, out_force, err_force = run_cmd_safe("npm install -g @google/gemini-cli --force", timeout=300, capture=True, detect_reset_time=False)
+
+        if rc_force == 0:
+            cprint(NEON_GREEN, "\n[OK] Update complete with --force.")
+            snippet = "\n".join((out_force or "").splitlines()[-6:])
+            cprint(NEON_GREEN, snippet)
         else:
-            cprint(NEON_RED, "[ERROR] Update failed even with --unsafe-perm.")
-            cprint(NEON_RED, (err2 or out2 or "No additional output."))
-            # diagnostic: show npm bin and suggest symlink
-            rc_bin, npm_bin, _ = run_cmd_safe("npm bin -g", timeout=6, capture=True, detect_reset_time=False)
-            npm_bin = (npm_bin or "").strip()
-            if npm_bin:
-                cprint(NEON_YELLOW, f"[INFO] npm global bin: {npm_bin}")
-                cprint(NEON_YELLOW, f"[TIP] If gemini is installed here, you can symlink: ln -sf {npm_bin}/gemini /usr/bin/gemini")
+            cprint(NEON_RED, f"[ERROR] npm install --force failed (rc={rc_force}).")
+            cprint(NEON_RED, (err_force or out_force or "No output."))
+            cprint(NEON_YELLOW, "[INFO] Trying with --unsafe-perm ...")
+            rc2, out2, err2 = run_cmd_safe("npm install -g --unsafe-perm @google/gemini-cli", timeout=300, capture=True, detect_reset_time=False)
+            if rc2 == 0:
+                cprint(NEON_GREEN, "[OK] Update succeeded with --unsafe-perm.")
+            else:
+                cprint(NEON_RED, "[ERROR] Update failed even with --unsafe-perm.")
+                cprint(NEON_RED, (err2 or out2 or "No additional output."))
+                # diagnostic: show npm bin and suggest symlink
+                rc_bin, npm_bin, _ = run_cmd_safe("npm bin -g", timeout=6, capture=True, detect_reset_time=False)
+                npm_bin = (npm_bin or "").strip()
+                if npm_bin:
+                    cprint(NEON_YELLOW, f"[INFO] npm global bin: {npm_bin}")
+                    cprint(NEON_YELLOW, f"[TIP] If gemini is installed here, you can symlink: ln -sf {npm_bin}/gemini /usr/bin/gemini")
     # done
 
 
