@@ -34,6 +34,8 @@ from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR
 from .b2 import B2Manager
 from .settings import get_setting
 from .credentials import resolve_credentials
+from .session import get_active_session
+from .cooldown import record_switch
 ...
 LOCKFILE = "/var/lock/gemini-backup.lock"
 
@@ -103,6 +105,8 @@ def extract_archive(archive_path: str, extract_to: str):
     run(cmd)
 
 def main():
+    email_before = get_active_session()
+    
     p = argparse.ArgumentParser()
     p.add_argument("--from-dir", help="Directory backup to restore from (legacy, archive is preferred)")
     p.add_argument("--from-archive", help="Tar.gz archive to restore from")
@@ -302,6 +306,16 @@ def main():
             print("Restore complete.")
             if bakname and os.path.exists(bakname):
                 print("Previous .gemini moved to:", bakname)
+
+            # Check for account switch and record it
+            if not args.dry_run:
+                email_after = get_active_session()
+                if email_before != email_after and email_after is not None:
+                    print(f"Account switch detected: -> {email_after}")
+                    print("Recording switch for 24h cooldown period...")
+                    # Pass args to handle potential cloud upload
+                    record_switch(email_after, args=args)
+
         finally:
             # cleanup temp extraction dir if still present
             if os.path.exists(work_tmp):

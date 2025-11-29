@@ -12,6 +12,7 @@ from .banner import print_logo
 from .login import do_login
 from .logout import do_logout
 from .session import do_session
+from .cooldown import do_cooldown_list
 from .settings_cli import do_config
 from .doctor import do_doctor
 from .prune import do_prune
@@ -56,6 +57,7 @@ def print_rich_help():
         ("config", "Manage persistent configuration"),
         ("doctor", "Run system diagnostic check"),
         ("resets", "Manage Gemini free tier reset schedules"),
+        ("cooldown", "Show account cooldown status"),
     ]
     
     for cmd, desc in commands:
@@ -251,6 +253,13 @@ def main():
     cleanup_parser.add_argument("--dry-run", action="store_true", help="Show what would be deleted without doing it")
     cleanup_parser.add_argument("--force", action="store_true", help="Skip confirmation prompt")
 
+    # Cooldown command
+    cooldown_parser = subparsers.add_parser("cooldown", help="Show account cooldown status, with optional cloud sync.")
+    cooldown_parser.add_argument("--cloud", action="store_true", help="Sync cooldown status from the cloud.")
+    cooldown_parser.add_argument("--bucket", help="B2 Bucket Name")
+    cooldown_parser.add_argument("--b2-id", help="B2 Key ID")
+    cooldown_parser.add_argument("--b2-key", help="B2 App Key")
+
     args = parser.parse_args()
 
     if args.command == "backup":
@@ -321,6 +330,8 @@ def main():
         do_prune(args)
     elif args.command == "cleanup":
         do_cleanup(args)
+    elif args.command == "cooldown":
+        do_cooldown_list(args)
     elif args.command == "resets":
         if args.list:
             do_list_resets()
