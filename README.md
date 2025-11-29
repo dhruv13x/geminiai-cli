@@ -27,28 +27,22 @@
 <!-- License -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-<!-- Docs -->
-[![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://your-docs-link)
-
 </div>
 
+# Gemini AI Automation Tool
 
-# Gemini CLI Helper
-
-A command-line interface (CLI) tool that acts as a wrapper around the official Gemini CLI, adding useful features for managing accounts, backups, and rate limits.
+**The Swiss Army Knife for Gemini AI Automation - Backups, Cloud Sync, and Account Management.**
 
 ## About
 
-This tool was created to simplify the management of the Gemini CLI by providing a more user-friendly interface for common tasks such as logging in, managing backups, and tracking API rate limits. It aims to be a "batteries-included" solution for both new and experienced users.
+`geminiai-cli` is a powerful, "batteries-included" command-line interface designed to supercharge your Gemini AI experience. Whether you need to manage multiple accounts, ensure your configuration is safely backed up to the cloud, or track your free tier usage to avoid rate limits, this tool has you covered. It wraps complex operations into simple, memorable commands.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.8+
-- The dependencies listed in `pyproject.toml`:
-  - `b2sdk>=1.18.0`
-  - `rich>=10.0.0`
+- **Python**: 3.8 or higher
+- **Dependencies**: `b2sdk`, `rich` (installed automatically)
 
 ### One-Command Installation
 
@@ -58,91 +52,95 @@ pip install .
 
 ### Usage Example
 
-Here's how to create a local backup of your Gemini configuration:
+Get up and running immediately by backing up your current configuration:
 
 ```bash
+# Run a local backup
 geminiai backup
+
+# View all available commands
+geminiai --help
 ```
 
 ## ✨ Key Features
 
-- **Account Management**: Seamlessly log in and out of your Gemini account.
-- **Backup and Restore**: **God Level** - Create local or cloud-based backups of your Gemini configuration and restore them with a single command.
-- **Rate Limit Tracking**: Keep track of API rate limits to avoid interruptions.
-- **Automated Updates**: Check for and install updates to the underlying Gemini CLI.
-- **Cloud Sync**: Synchronize your local backups with a Backblaze B2 bucket.
+- **🛡️ God Level Backups**: Create local or **Cloud-based (Backblaze B2)** backups of your Gemini configuration and chats.
+- **☁️ Cloud Sync**: Seamlessly synchronize your backups between your local machine and the cloud.
+- **⏱️ Resets Management**: Track your Gemini free tier reset schedules to maximize usage without hitting limits.
+- **❄️ Cooldown Tracking**: Monitor account cooldown status to avoid rate limiting.
+- **🩺 Doctor Mode**: Run a system diagnostic check to identify and fix issues.
+- **🔐 Credential Management**: Securely handle Backblaze B2 credentials via CLI, Environment Variables, or Doppler.
+- **🧹 Cleanup**: Easily clear temporary chat history and logs.
+- **🔄 Automated Updates**: Check for and install updates to the underlying tools.
 
 ## ⚙️ Configuration & Advanced Usage
 
 ### Environment Variables
 
-For cloud-based backups with Backblaze B2, you can configure your credentials using the following environment variables:
+You can configure credentials using `.env` files, environment variables, or Doppler. The priority order is: CLI Args > Doppler > Env Vars > `.env` file > Saved Config.
 
-- `B2_APPLICATION_KEY_ID`: Your Backblaze B2 application key ID.
-- `B2_APPLICATION_KEY`: Your Backblaze B2 application key.
-- `B2_BUCKET_NAME`: The name of your B2 bucket.
+| Variable | Description |
+| :--- | :--- |
+| `GEMINI_B2_KEY_ID` | Your Backblaze B2 Application Key ID. |
+| `GEMINI_B2_APP_KEY` | Your Backblaze B2 Application Key. |
+| `GEMINI_B2_BUCKET` | The name of your Backblaze B2 Bucket. |
+| `DOPPLER_TOKEN` | Token for fetching secrets from Doppler. |
 
-### Commands
+### CLI Commands
 
-| Command         | Description                                     | Arguments                                                                                                                                                                                                                                                                                          |
-| --------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `backup`        | Backup Gemini configuration.                    | `--src`, `--archive-dir`, `--dest-dir-parent`, `--dry-run`, `--cloud`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                                               |
-| `restore`       | Restore Gemini configuration from a backup.     | `--from-dir`, `--from-archive`, `--search-dir`, `--dest`, `--force`, `--dry-run`, `--cloud`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                            |
-| `check-integrity` | Check integrity of the current configuration.   | `--src`, `--search-dir`                                                                                                                                                                                                                                                                            |
-| `list-backups`  | List available backups.                         | `--search-dir`, `--cloud`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                                                                                         |
-| `prune`         | Prune old backups.                              | `--keep`, `--backup-dir`, `--cloud`, `--cloud-only`, `--dry-run`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                                                    |
-| `check-b2`      | Verify Backblaze B2 credentials.                | `--b2-id`, `--b2-key`, `--bucket`                                                                                                                                                                                                                                                                    |
-| `cloud-sync`    | Sync local backups to the cloud.                | `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                                                                                                    |
-| `local-sync`    | Sync cloud backups to local.                    | `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key`                                                                                                                                                                                                                                                    |
-| `config`        | Manage persistent configuration.                | `set`, `get`, `list`, `unset`                                                                                                                                                                                                                                                                      |
-| `doctor`        | Run a system diagnostic check.                  |                                                                                                                                                                                                                                                                                                    |
-| `resets`        | Manage Gemini free tier reset schedules.        | `--list`, `--next`, `--add`, `--remove`                                                                                                                                                                                                                                                              |
+| Command | Description | Key Arguments |
+| :--- | :--- | :--- |
+| `backup` | Backup configuration and chats. | `--cloud`, `--bucket`, `--b2-id`, `--b2-key` |
+| `restore` | Restore configuration from backup. | `--from-dir`, `--cloud`, `--force` |
+| `cloud-sync` | Sync local backups to Cloud (B2). | `--bucket`, `--b2-id`, `--b2-key` |
+| `local-sync` | Sync Cloud backups to local. | `--bucket`, `--b2-id`, `--b2-key` |
+| `list-backups` | List available backups. | `--cloud`, `--search-dir` |
+| `prune` | Delete old backups. | `--keep`, `--cloud`, `--cloud-only` |
+| `check-integrity` | Verify configuration integrity. | `--src`, `--search-dir` |
+| `check-b2` | Verify B2 credentials. | `--bucket`, `--b2-id`, `--b2-key` |
+| `config` | Manage persistent settings. | `set`, `get`, `list`, `unset` |
+| `resets` | Manage free tier reset schedules. | `--list`, `--next`, `--add`, `--remove` |
+| `cooldown` | Show account cooldown status. | `--cloud` |
+| `cleanup` | Clear temp files and logs. | `--force`, `--dry-run` |
+| `doctor` | Run system diagnostics. | |
 
 ### Global Options
 
-| Option         | Description                                     |
-| --------------- | ----------------------------------------------- |
-| `--login`       | Login to Gemini CLI.                            |
-| `--logout`      | Logout from Gemini CLI.                         |
-| `--session`     | Show the current active session.                |
-| `--update`      | Reinstall/update Gemini CLI.                    |
-| `--check-update`| Check for updates.                              |
+| Option | Description |
+| :--- | :--- |
+| `--login` | Login to Gemini CLI. |
+| `--logout` | Logout from Gemini CLI. |
+| `--session` | Show current active session. |
+| `--update` | Reinstall/update Gemini CLI. |
+| `--check-update` | Check for updates. |
 
 ## 🏗️ Architecture
 
-### Directory Tree
+The project is structured as a modular Python CLI application using `argparse` for command handling and `rich` for the UI.
 
+```text
+src/geminiai_cli/
+├── cli.py             # Main Entry Point & Argument Parsing
+├── credentials.py     # Credential Resolution (Env, Doppler, Config)
+├── backup.py          # Backup Logic
+├── restore.py         # Restore Logic
+├── sync.py            # Cloud/Local Sync Logic
+├── resets_helpers.py  # Reset Schedule Management
+├── doctor.py          # Diagnostic Tools
+└── ...
 ```
-src/
-└── geminiai_cli/
-    ├── __init__.py
-    ├── cli.py
-    ├── backup.py
-    ├── restore.py
-    ├── ...
-```
-
-### Core Logic Flow
-
-The main entry point is `src/geminiai_cli/cli.py`, which uses the `argparse` module to define the CLI commands and their arguments. Each command is then handled by a corresponding function in a separate file (e.g., `backup.py`, `restore.py`). The `rich` library is used to create a more user-friendly and visually appealing command-line interface.
 
 ## 🗺️ Roadmap
 
-### Completed
-
-- [x] Account Management
-- [x] Local and Cloud Backups
-- [x] Rate Limit Tracking
-- [x] Automated Updates
-
-### Upcoming
-
-- [ ] Support for other cloud providers (e.g., AWS S3, Google Cloud Storage)
-- [ ] A more interactive configuration process
-- [ ] Improved error handling and reporting
+- [x] **Account Management**: Seamless login/logout.
+- [x] **Cloud Backups**: Backblaze B2 integration.
+- [x] **Resets & Cooldowns**: Smart rate limit management.
+- [ ] **Multi-Cloud Support**: AWS S3, Google Cloud Storage.
+- [ ] **Interactive Config**: Wizard-style setup.
+- [ ] **GUI**: A graphical interface for common tasks.
 
 ## 🤝 Contributing & License
 
-Contributions are welcome! Please feel free to submit a pull request or open an issue on the GitHub repository.
+Contributions are welcome! Please submit a pull request or open an issue on the GitHub repository.
 
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+This project is licensed under the MIT License.
