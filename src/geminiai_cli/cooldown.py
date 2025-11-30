@@ -188,6 +188,14 @@ def do_cooldown_list(args=None):
     # 1. Sync if requested
     if args and getattr(args, 'cloud', False):
         _sync_cooldown_file(direction='download', args=args)
+        # Also sync resets
+        try:
+            key_id, app_key, bucket_name = resolve_credentials(args)
+            if key_id and app_key and bucket_name:
+                b2 = B2Manager(key_id, app_key, bucket_name)
+                sync_resets_with_cloud(b2)
+        except Exception as e:
+             cprint(NEON_RED, f"[WARN] Failed to sync resets: {e}")
 
     # 2. Load Data
     cooldown_map = get_cooldown_data() # {email: last_switch_iso}
