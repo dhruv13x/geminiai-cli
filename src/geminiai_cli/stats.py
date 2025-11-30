@@ -13,7 +13,7 @@ def do_stats(args=None):
     events = history.get_events_last_n_days(days_to_show)
 
     if not events:
-        console.print(f"[{NEON_YELLOW}]No usage history found for the last {days_to_show} days.[/]")
+        console.print(f"[bold yellow]No usage history found for the last {days_to_show} days.[/]")
         return
 
     # Aggregate by day
@@ -65,7 +65,7 @@ def do_stats(args=None):
         if count > 0:
             bar = "█" * bar_len
             if bar_len == 0: bar = "▏" # Tiny bar for non-zero count
-            color = NEON_GREEN
+            color = "bold green"
         else:
             bar = ""
             color = "dim"
