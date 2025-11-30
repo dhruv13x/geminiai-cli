@@ -47,16 +47,21 @@
 ### One-Command Installation
 
 ```bash
+pip install geminiai-cli
+# Or from source
 pip install .
 ```
 
 ### Usage Example
 
-Get up and running immediately by backing up your current configuration:
+Get up and running immediately. You can use `geminiai`, `geminiai-cli`, or the shorthand `ga`.
 
 ```bash
 # Run a local backup
 geminiai backup
+
+# Check your account cooldown status
+ga cooldown
 
 # View all available commands
 geminiai --help
@@ -70,8 +75,9 @@ geminiai --help
 - **❄️ Cooldown Tracking**: Monitor account cooldown status to avoid rate limiting.
 - **🩺 Doctor Mode**: Run a system diagnostic check to identify and fix issues.
 - **🔐 Credential Management**: Securely handle Backblaze B2 credentials via CLI, Environment Variables, or Doppler.
-- **🧹 Cleanup**: Easily clear temporary chat history and logs.
-- **🔄 Automated Updates**: Check for and install updates to the underlying tools.
+- **🧹 Cleanup & Pruning**: Automatically prune old backups and clear temporary files to save space.
+- **🔄 Automated Updates**: Built-in self-update mechanism.
+- **⚡ Integrity Checks**: Verify your configuration integrity against backups.
 
 ## ⚙️ Configuration & Advanced Usage
 
@@ -90,19 +96,19 @@ You can configure credentials using `.env` files, environment variables, or Dopp
 
 | Command | Description | Key Arguments |
 | :--- | :--- | :--- |
-| `backup` | Backup configuration and chats. | `--cloud`, `--bucket`, `--b2-id`, `--b2-key` |
-| `restore` | Restore configuration from backup. | `--from-dir`, `--cloud`, `--force` |
-| `cloud-sync` | Sync local backups to Cloud (B2). | `--bucket`, `--b2-id`, `--b2-key` |
-| `local-sync` | Sync Cloud backups to local. | `--bucket`, `--b2-id`, `--b2-key` |
-| `list-backups` | List available backups. | `--cloud`, `--search-dir` |
-| `prune` | Delete old backups. | `--keep`, `--cloud`, `--cloud-only` |
+| `backup` | Backup configuration and chats. | `--src`, `--archive-dir`, `--cloud`, `--bucket`, `--dry-run` |
+| `restore` | Restore configuration from backup. | `--from-dir`, `--from-archive`, `--cloud`, `--force`, `--dry-run` |
+| `cloud-sync` | Sync local backups to Cloud (B2). | `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key` |
+| `local-sync` | Sync Cloud backups to local. | `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key` |
+| `list-backups` | List available backups. | `--cloud`, `--search-dir`, `--bucket` |
+| `prune` | Delete old backups. | `--keep`, `--backup-dir`, `--cloud`, `--cloud-only`, `--dry-run` |
 | `check-integrity` | Verify configuration integrity. | `--src`, `--search-dir` |
 | `check-b2` | Verify B2 credentials. | `--bucket`, `--b2-id`, `--b2-key` |
-| `config` | Manage persistent settings. | `set`, `get`, `list`, `unset` |
+| `config` | Manage persistent settings. | `set`, `get`, `list`, `unset`, `--force` |
 | `resets` | Manage free tier reset schedules. | `--list`, `--next`, `--add`, `--remove` |
-| `cooldown` | Show account cooldown status. | `--cloud` |
+| `cooldown` | Show account cooldown status. | `--cloud`, `--remove`, `--bucket` |
 | `cleanup` | Clear temp files and logs. | `--force`, `--dry-run` |
-| `doctor` | Run system diagnostics. | |
+| `doctor` | Run system diagnostics. | *(No arguments)* |
 
 ### Global Options
 
@@ -121,23 +127,31 @@ The project is structured as a modular Python CLI application using `argparse` f
 ```text
 src/geminiai_cli/
 ├── cli.py             # Main Entry Point & Argument Parsing
-├── credentials.py     # Credential Resolution (Env, Doppler, Config)
 ├── backup.py          # Backup Logic
 ├── restore.py         # Restore Logic
 ├── sync.py            # Cloud/Local Sync Logic
-├── resets_helpers.py  # Reset Schedule Management
-├── doctor.py          # Diagnostic Tools
-└── ...
+├── b2.py              # Backblaze B2 Integration
+├── credentials.py     # Credential Management
+├── doctor.py          # System Diagnostics
+├── cooldown.py        # Cooldown Tracking
+└── resets_helpers.py  # Reset Schedule Management
 ```
 
 ## 🗺️ Roadmap
 
-- [x] **Account Management**: Seamless login/logout.
-- [x] **Cloud Backups**: Backblaze B2 integration.
-- [x] **Resets & Cooldowns**: Smart rate limit management.
-- [ ] **Multi-Cloud Support**: AWS S3, Google Cloud Storage.
-- [ ] **Interactive Config**: Wizard-style setup.
-- [ ] **GUI**: A graphical interface for common tasks.
+### ✅ Completed
+- **Account Management**: Seamless login/logout.
+- **Cloud Backups**: Backblaze B2 integration.
+- **Resets & Cooldowns**: Smart rate limit management.
+- **Automated Updates**: Self-updating mechanism.
+- **Health Checks**: Doctor mode for diagnostics.
+
+### 🚧 Upcoming
+- **Multi-Cloud Support**: AWS S3, Google Cloud Storage.
+- **Interactive Config**: Wizard-style setup.
+- **Enhanced TUI**: Rich dashboards and real-time progress bars.
+- **Webhooks**: Integration with Slack/Discord for alerts.
+- **AI-Driven Anomaly Detection**: Smart backup analysis.
 
 ## 🤝 Contributing & License
 
