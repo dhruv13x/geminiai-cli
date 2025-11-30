@@ -86,6 +86,10 @@ def run_cmd_safe(cmd: str, timeout: int = 30, capture: bool = True, detect_reset
 # ------------------------
 # Helpers: storage & I/O
 # ------------------------
+def get_all_resets() -> List[Dict[str, Any]]:
+    """Public accessor for reset entries."""
+    return _load_store()
+
 def _load_store() -> List[Dict[str, Any]]:
     try:
         if not os.path.exists(STORE_FILE):
@@ -518,7 +522,7 @@ def sync_resets_with_cloud(b2_manager):
     """
     Downloads cloud cooldowns, merges with local, and pushes back.
     """
-    CLOUD_FILE = "gemini-cooldown.json"
+    CLOUD_FILE = "gemini-resets.json"
     
     cprint(NEON_CYAN, "Syncing cooldowns with cloud...")
     
@@ -528,6 +532,10 @@ def sync_resets_with_cloud(b2_manager):
     if remote_json_str:
         try:
             remote_entries = json.loads(remote_json_str)
+            # Ensure it is a list, otherwise ignore it (e.g. if it was a dict from another tool)
+            if not isinstance(remote_entries, list):
+                cprint(NEON_YELLOW, "[WARN] Cloud file format mismatch (expected list). Ignoring remote data.")
+                remote_entries = []
         except json.JSONDecodeError:
             cprint(NEON_YELLOW, "[WARN] Cloud cooldown file was corrupt. Overwriting.")
     

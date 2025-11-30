@@ -12,7 +12,7 @@ from .banner import print_logo
 from .login import do_login
 from .logout import do_logout
 from .session import do_session
-from .cooldown import do_cooldown_list
+from .cooldown import do_cooldown_list, do_remove_account
 from .settings_cli import do_config
 from .doctor import do_doctor
 from .prune import do_prune
@@ -259,6 +259,7 @@ def main():
     cooldown_parser.add_argument("--bucket", help="B2 Bucket Name")
     cooldown_parser.add_argument("--b2-id", help="B2 Key ID")
     cooldown_parser.add_argument("--b2-key", help="B2 App Key")
+    cooldown_parser.add_argument("--remove", nargs=1, help="Remove an account from the dashboard (both cooldown and resets).")
 
     args = parser.parse_args()
 
@@ -331,7 +332,10 @@ def main():
     elif args.command == "cleanup":
         do_cleanup(args)
     elif args.command == "cooldown":
-        do_cooldown_list(args)
+        if args.remove:
+            do_remove_account(args.remove[0], args)
+        else:
+            do_cooldown_list(args)
     elif args.command == "resets":
         if args.list:
             do_list_resets()

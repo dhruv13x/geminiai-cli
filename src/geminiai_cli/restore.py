@@ -338,6 +338,9 @@ def main():
                             sync_resets_with_cloud(b2_for_sync)
                     except Exception as e:
                         cprint(NEON_RED, f"[WARN] Could not sync resets to cloud: {e}")
+                    
+                    # Also update the cooldown dashboard (gemini-cooldown.json)
+                    record_switch(email_before, args=args)
                 # ------------------------------------------
 
                 email_after = get_active_session()

@@ -6,9 +6,69 @@ import json
 import datetime
 from typing import Dict, Optional
 
-from .ui import cprint, NEON_CYAN, NEON_GREEN, NEON_YELLOW, NEON_RED, RESET
+from .ui import cprint, console, NEON_CYAN, NEON_GREEN, NEON_YELLOW, NEON_RED, RESET
 from .b2 import B2Manager
 from .credentials import resolve_credentials
+from .reset_helpers import get_all_resets, remove_entry_by_id, sync_resets_with_cloud
+
+# ... existing code ...
+
+def do_remove_account(email: str, args=None):
+    """
+    Removes an account from the dashboard.
+    1. Removes from 'gemini-resets.json' (Log)
+    2. Removes from 'gemini-cooldown.json' (State)
+    3. Syncs both changes to cloud (if credentials available)
+    """
+    cprint(NEON_CYAN, f"Removing account '{email}' from dashboard...")
+    
+    # 1. Remove from Resets (Logbook)
+    removed_resets = remove_entry_by_id(email)
+    if removed_resets:
+        cprint(NEON_GREEN, f"[OK] Removed reset history for {email}")
+    else:
+        cprint(NEON_YELLOW, f"[INFO] No reset history found for {email}")
+
+    # 2. Remove from Cooldowns (State)
+    path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    data = get_cooldown_data()
+    
+    if email in data:
+        del data[email]
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                json.dump(data, f, indent=4)
+            cprint(NEON_GREEN, f"[OK] Removed cooldown state for {email}")
+        except IOError as e:
+            cprint(NEON_RED, f"[ERROR] Failed to update local file: {e}")
+    else:
+        cprint(NEON_YELLOW, f"[INFO] No active cooldown state found for {email}")
+
+    # 3. Cloud Sync (Both files)
+    # Only attempt if we have credentials in args (or environment)
+    try:
+        key_id, app_key, bucket_name = resolve_credentials(args)
+        if key_id and app_key and bucket_name:
+            cprint(NEON_CYAN, "Syncing removal to cloud...")
+            
+            # Sync Cooldowns
+            _sync_cooldown_file(direction='upload', args=args)
+            
+            # Sync Resets
+            try:
+                b2 = B2Manager(key_id, app_key, bucket_name)
+                sync_resets_with_cloud(b2)
+            except Exception as e:
+                 cprint(NEON_RED, f"[WARN] Failed to sync resets removal: {e}")
+                 
+            cprint(NEON_GREEN, "Cloud sync complete.")
+    except Exception:
+        # Creds not available, skip silent
+        pass
+from rich.table import Table
+from rich.panel import Panel
+from rich.align import Align
 
 
 COOLDOWN_FILE_PATH = os.path.join(os.path.expanduser("~"), ".gemini-cooldown.json")
@@ -119,49 +179,126 @@ def record_switch(email: str, args=None):
 
 def do_cooldown_list(args=None):
     """
-    Displays the cooldown status for all tracked accounts.
-    Syncs from the cloud first if cloud args are provided.
+    Displays the Master Dashboard: merged view of Cooldowns (Switch events) and Scheduled Resets.
     """
-    # If cloud args are provided, trigger a download first
+    # 1. Sync if requested
     if args and getattr(args, 'cloud', False):
         _sync_cooldown_file(direction='download', args=args)
 
-    cprint(NEON_CYAN, "🕰️ Checking account cooldown status...")
-    
-    data = get_cooldown_data()
-    
-    if not data:
-        cprint(NEON_YELLOW, "No account switch data found. All accounts are ready to use.")
+    # 2. Load Data
+    cooldown_map = get_cooldown_data() # {email: last_switch_iso}
+    resets_list = get_all_resets()     # [{email:..., reset_ist:...}, ...]
+
+    all_emails = set(cooldown_map.keys())
+    for entry in resets_list:
+        if entry.get("email"):
+            all_emails.add(entry["email"].lower())
+
+    if not all_emails:
+        cprint(NEON_YELLOW, "No account data found (switches or resets).")
         return
-        
+
+    # 3. Build Table
+    table = Table(show_header=True, header_style="bold white", border_style="blue", padding=(0, 1))
+    table.add_column("Account", style="cyan")
+    table.add_column("Status", justify="center")
+    table.add_column("Availability", style="white")
+    table.add_column("Last Used", style="dim")
+    table.add_column("Next Scheduled Reset", style="magenta")
+
     now = datetime.datetime.now(datetime.timezone.utc)
-    cooldown_delta = datetime.timedelta(hours=COOLDOWN_HOURS)
     
-    # Sort by email address for consistent output
-    sorted_emails = sorted(data.keys())
+    # Helper for relative time
+    def format_delta(delta):
+        s = int(delta.total_seconds())
+        if s < 0: return "passed"
+        h, r = divmod(s, 3600)
+        m, _ = divmod(r, 60)
+        return f"In {h}h {m}m"
+
+    def format_ago(delta):
+        s = int(delta.total_seconds())
+        if s < 60: return "Just now"
+        if s < 3600: return f"{s//60}m ago"
+        if s < 86400: return f"{s//3600}h ago"
+        return f"{s//86400}d ago"
+
+    sorted_emails = sorted(list(all_emails))
 
     for email in sorted_emails:
-        last_switch_str = data[email]
-        try:
-            last_switch_time = datetime.datetime.fromisoformat(last_switch_str)
-            
-            # Ensure timestamp is timezone-aware for correct comparison
-            if last_switch_time.tzinfo is None:
-                last_switch_time = last_switch_time.replace(tzinfo=datetime.timezone.utc)
-
-            time_since_switch = now - last_switch_time
-            
-            if time_since_switch >= cooldown_delta:
-                cprint(NEON_GREEN, f"✅ {email:<40} Ready to use")
-            else:
-                time_remaining = cooldown_delta - time_since_switch
+        # --- Analyze Cooldown (Last Switch) ---
+        last_used_str = "-"
+        availability_str = "Now"
+        is_locked = False
+        
+        if email in cooldown_map:
+            try:
+                last_ts = datetime.datetime.fromisoformat(cooldown_map[email])
+                if last_ts.tzinfo is None:
+                    last_ts = last_ts.replace(tzinfo=datetime.timezone.utc)
                 
-                # Formatting the remaining time
-                hours, remainder = divmod(time_remaining.total_seconds(), 3600)
-                minutes, _ = divmod(remainder, 60)
+                # Calculate ago
+                ago_delta = now - last_ts
+                last_used_str = format_ago(ago_delta)
                 
-                cprint(NEON_YELLOW, f"⏳ {email:<40} Cooldown active: {int(hours)}h {int(minutes)}m remaining")
+                # Calculate Lockout
+                unlock_time = last_ts + datetime.timedelta(hours=COOLDOWN_HOURS)
+                remaining = unlock_time - now
+                
+                if remaining.total_seconds() > 0:
+                    is_locked = True
+                    availability_str = format_delta(remaining)
+            except ValueError:
+                last_used_str = "Invalid TS"
 
-        except ValueError:
-            cprint(NEON_RED, f"❌ {email:<40} Invalid timestamp format: {last_switch_str}")
+        # --- Analyze Resets (Next Scheduled) ---
+        next_reset_str = "-"
+        has_upcoming_reset = False
+        
+        # Filter resets for this email, find earliest future one
+        my_resets = []
+        for r in resets_list:
+            if r.get("email", "").lower() == email:
+                try:
+                    # resets are stored as ISO strings (likely with timezone info)
+                    # We need to compare safely.
+                    r_ts = datetime.datetime.fromisoformat(r["reset_ist"])
+                    if r_ts.tzinfo is None:
+                         # If raw stored without TZ, assume local/UTC? 
+                         # Existing logic uses IST timezone in reset_helpers, so it should have offsets.
+                         # We'll blindly compare to 'now' if possible or just display.
+                         pass
+                    my_resets.append(r_ts)
+                except Exception:
+                    pass
+        
+        # Sort and find first future
+        my_resets.sort()
+        # We need to compare with 'now'. If resets are timezone aware (e.g. IST), 
+        # and 'now' is UTC, python handles it if both have tzinfo.
+        for r_ts in my_resets:
+            if r_ts > now:
+                # Found future reset
+                diff = r_ts - now
+                next_reset_str = format_delta(diff)
+                has_upcoming_reset = True
+                break
+
+        # --- Determine Final Status ---
+        if is_locked:
+            status = "[bold red]🔴 COOLDOWN[/]"
+            avail_style = "[red]" + availability_str + "[/]"
+        elif has_upcoming_reset:
+             # Not strictly locked by 24h rule, but has a scheduled event
+            status = "[bold yellow]🟡 SCHEDULED[/]"
+            avail_style = "[green]Now[/]"
+        else:
+            status = "[bold green]🟢 READY[/]"
+            avail_style = "[bold green]Now[/]"
+
+        table.add_row(email, status, avail_style, last_used_str, next_reset_str)
+
+    console.print("\n[bold white]📊 Account Dashboard[/]")
+    console.print(table)
+    console.print()
 
