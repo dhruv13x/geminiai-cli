@@ -29,7 +29,7 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 **Focus**: Feature parity with top competitors, user experience improvements, and robust error handling.
 **Timeline**: Q2
 
-- [ ] **Smart Account Recommendation**: "Next Best Account" logic to suggest the most rested account (Green & Least Recently Used).
+- [x] **Smart Account Recommendation**: "Next Best Account" logic to suggest the most rested account (Green & Least Recently Used).
 - [ ] **Auto-Switching**: Automatically restore the best available account (`ga restore --auto`).
 - [ ] **Visual Usage Graphs**: ASCII bar charts in the terminal to visualize usage patterns over the last 7 days.
 - [ ] **Profile Portability**: Export/Import profiles (`ga profile export/import`) for easy migration between machines.
