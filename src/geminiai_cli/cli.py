@@ -18,6 +18,7 @@ from .doctor import do_doctor
 from .prune import do_prune
 from .update import do_update, do_check_update
 from .cleanup import do_cleanup
+from .recommend import do_recommend
 from .reset_helpers import (
     do_next_reset,
     do_capture_reset,
@@ -58,6 +59,7 @@ def print_rich_help():
         ("doctor", "Run system diagnostic check"),
         ("resets", "Manage Gemini free tier reset schedules"),
         ("cooldown", "Show account cooldown status"),
+        ("recommend", "Get the next best account recommendation"),
     ]
     
     for cmd, desc in commands:
@@ -261,6 +263,10 @@ def main():
     cooldown_parser.add_argument("--b2-key", help="B2 App Key")
     cooldown_parser.add_argument("--remove", nargs=1, help="Remove an account from the dashboard (both cooldown and resets).")
 
+    # Recommend command
+    recommend_parser = subparsers.add_parser("recommend", aliases=["next"], help="Suggest the next best account (Green & Least Recently Used).")
+    # No arguments needed for now, but could add specific filters later.
+
     args = parser.parse_args()
 
     if args.command == "backup":
@@ -336,6 +342,8 @@ def main():
             do_remove_account(args.remove[0], args)
         else:
             do_cooldown_list(args)
+    elif args.command == "recommend" or args.command == "next":
+        do_recommend(args)
     elif args.command == "resets":
         if args.list:
             do_list_resets()
