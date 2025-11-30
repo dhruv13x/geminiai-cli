@@ -13,6 +13,7 @@ from geminiai_cli.cooldown import (
     COOLDOWN_FILE_PATH,
     CLOUD_COOLDOWN_FILENAME,
 )
+from rich.table import Table
 
 # Constants for testing
 TEST_EMAIL = "test@example.com"
@@ -42,6 +43,9 @@ def mock_resolve_credentials(mocker):
 def mock_cprint(mocker):
     return mocker.patch("geminiai_cli.cooldown.cprint")
 
+@pytest.fixture
+def mock_console(mocker):
+    return mocker.patch("geminiai_cli.cooldown.console")
 
 @pytest.fixture
 def mock_fs(fs):
@@ -56,15 +60,6 @@ def mock_fs(fs):
 def patch_env(monkeypatch):
     # Patch the COOLDOWN_FILE_PATH in the module to point to our mock path
     monkeypatch.setattr("geminiai_cli.cooldown.COOLDOWN_FILE_PATH", MOCK_COOLDOWN_PATH)
-
-    # We also need to patch os.path.expanduser because the code calls it on COOLDOWN_FILE_PATH
-    # Even if COOLDOWN_FILE_PATH is absolute, it's safer to ensure consistency
-    # But since MOCK_COOLDOWN_PATH is absolute, expanduser should leave it alone.
-
-    # However, in _sync_cooldown_file, it calls:
-    # local_path = os.path.expanduser(COOLDOWN_FILE_PATH)
-    # If MOCK_COOLDOWN_PATH contains ~, we need expanduser to work.
-    # Here MOCK_COOLDOWN_PATH is /home/testuser/... so it is fine.
 
 
 def test_sync_cooldown_file_no_creds(mock_resolve_credentials, mock_cprint, mock_args):
@@ -221,8 +216,6 @@ def test_record_switch_write_fail(fs, mocker, mock_cprint):
     mock_datetime.timezone.utc = datetime.timezone.utc
 
     # Simulate IOError during write
-    # Since we are using pyfakefs, we can't easily patch open with side_effect while using it for other things
-    # But we can trick it by making the path a directory
     if os.path.exists(MOCK_COOLDOWN_PATH):
         os.remove(MOCK_COOLDOWN_PATH)
     fs.create_dir(MOCK_COOLDOWN_PATH)
@@ -238,7 +231,7 @@ def test_do_cooldown_list_no_data(fs, mock_cprint):
     if os.path.exists(MOCK_COOLDOWN_PATH):
         os.remove(MOCK_COOLDOWN_PATH)
     do_cooldown_list()
-    mock_cprint.assert_any_call(cooldown.NEON_YELLOW, "No account switch data found. All accounts are ready to use.")
+    mock_cprint.assert_any_call(cooldown.NEON_YELLOW, "No account data found (switches or resets).")
 
 
 def test_do_cooldown_list_with_cloud(fs, mock_args, mock_resolve_credentials, mock_b2_manager):
@@ -249,27 +242,57 @@ def test_do_cooldown_list_with_cloud(fs, mock_args, mock_resolve_credentials, mo
     mock_b2_manager.return_value.download.assert_called_once()
 
 
-def test_do_cooldown_list_ready(fs, mock_cprint, mocker):
-    # Set time so that > 24h has passed
-    # We need to mock datetime.datetime.now() to return a known time
-    # OR we can just create a timestamp that is definitely older than 24h from *real* now.
+def _get_printed_table(mock_console):
+    """Helper to extract the Rich Table from mock_console calls."""
+    for call in mock_console.print.call_args_list:
+        if call.args and isinstance(call.args[0], Table):
+            return call.args[0]
+    return None
 
+def _get_table_rows(table):
+    """Extract rows from a Rich Table."""
+    # Table stores data in columns.
+    # We can reconstruct rows by iterating over columns and taking the i-th element.
+
+    # table.columns is a list of Column objects.
+    # Each Column object has ._cells which is a list.
+
+    col_cells = [list(col.cells) for col in table.columns]
+    # col_cells is [[col1_row1, col1_row2], [col2_row1, col2_row2], ...]
+
+    # Transpose to get rows
+    # zip(*col_cells)
+
+    return list(zip(*col_cells))
+
+
+def test_do_cooldown_list_ready(fs, mock_console, mocker):
+    # Set time so that > 24h has passed
     past_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=25)
     data = {TEST_EMAIL: past_time.isoformat()}
     fs.create_file(MOCK_COOLDOWN_PATH, contents=json.dumps(data))
 
     do_cooldown_list()
 
-    # Check for green checkmark
-    found = False
-    for call in mock_cprint.call_args_list:
-        if call.args and cooldown.NEON_GREEN in call.args and "Ready to use" in call.args[1]:
-            found = True
-            break
-    assert found
+    table = _get_printed_table(mock_console)
+    assert table is not None
+
+    rows = _get_table_rows(table)
+
+    found_email = False
+    found_status = False
+    for row in rows:
+        # row is a tuple of cells
+        if TEST_EMAIL in str(row[0]):
+            found_email = True
+            if "READY" in str(row[1]):
+                found_status = True
+
+    assert found_email, "Email not found in table"
+    assert found_status, "Status READY not found in table"
 
 
-def test_do_cooldown_list_active(fs, mock_cprint, mocker):
+def test_do_cooldown_list_active(fs, mock_console, mocker):
     # Set time so that < 24h has passed (e.g., 1 hour ago)
     past_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
     data = {TEST_EMAIL: past_time.isoformat()}
@@ -277,35 +300,62 @@ def test_do_cooldown_list_active(fs, mock_cprint, mocker):
 
     do_cooldown_list()
 
-    # Check for yellow warning
-    found = False
-    for call in mock_cprint.call_args_list:
-        if call.args and cooldown.NEON_YELLOW in call.args and "Cooldown active" in call.args[1]:
-            found = True
-            break
-    assert found
+    table = _get_printed_table(mock_console)
+    assert table is not None
+
+    rows = _get_table_rows(table)
+
+    found_email = False
+    found_status = False
+    for row in rows:
+        if TEST_EMAIL in str(row[0]):
+            found_email = True
+            if "COOLDOWN" in str(row[1]):
+                found_status = True
+
+    assert found_email
+    assert found_status
 
 
-def test_do_cooldown_list_invalid_timestamp(fs, mock_cprint):
+def test_do_cooldown_list_invalid_timestamp(fs, mock_console):
     data = {TEST_EMAIL: "invalid-timestamp"}
     fs.create_file(MOCK_COOLDOWN_PATH, contents=json.dumps(data))
 
     do_cooldown_list()
 
-    # Check for red error
-    found = False
-    for call in mock_cprint.call_args_list:
-        if call.args and cooldown.NEON_RED in call.args and "Invalid timestamp format" in call.args[1]:
-            found = True
-            break
-    assert found
+    table = _get_printed_table(mock_console)
+    assert table is not None
+
+    rows = _get_table_rows(table)
+
+    found_email = False
+    found_invalid = False
+    for row in rows:
+        if TEST_EMAIL in str(row[0]):
+            found_email = True
+            # Column 3 is Last Used
+            if "Invalid TS" in str(row[3]):
+                found_invalid = True
+
+    assert found_email
+    assert found_invalid
 
 
-def test_do_cooldown_list_naive_timestamp_fix(fs, mock_cprint, mocker):
+def test_do_cooldown_list_naive_timestamp_fix(fs, mock_console, mocker):
     naive_time = datetime.datetime.now() # Naive
     data = {TEST_EMAIL: naive_time.isoformat()}
     fs.create_file(MOCK_COOLDOWN_PATH, contents=json.dumps(data))
 
     do_cooldown_list()
 
-    assert mock_cprint.called
+    table = _get_printed_table(mock_console)
+    assert table is not None
+
+    # Just verify it rendered
+    found_email = False
+    rows = _get_table_rows(table)
+    for row in rows:
+        if TEST_EMAIL in str(row[0]):
+            found_email = True
+
+    assert found_email
