@@ -1,6 +1,6 @@
 [project]
 name = "geminiai-cli"
-version = "6.0.0"
+version = "6.1.0"
 description = "Gemini AI CLI Tool for automation"
 readme = "README.md"
 requires-python = ">=3.8"
