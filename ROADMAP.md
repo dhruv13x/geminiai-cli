@@ -7,7 +7,8 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 ## Phase 1: Foundation (CRITICALLY MUST HAVE)
 
 **Focus**: Core functionality, stability, security, and basic usage.
-**Status**: Establishing the bedrock of the application.
+**Instruction**: Prioritize items that are partially built or standard for this type of tool.
+**Timeline**: Q1 (Completed)
 
 - [x] **Account Management**: Seamlessly log in, log out, and view session details (`--login`, `--logout`, `--session`).
 - [x] **Local Backups**: Robust local backup and restore functionality (`backup`, `restore`).
@@ -16,6 +17,8 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [x] **Automated Updates**: Self-updating mechanism to keep the CLI current.
 - [x] **Backup Retention Management**: Automated pruning of old backups (`prune` command).
 - [x] **System Diagnostic Tool**: Self-check health reporter (`doctor` command).
+- [x] **Cleanup Tool**: Clear temporary chat history and logs (`cleanup` command).
+- [x] **Configuration Management**: Manage persistent settings (`config` command).
 - [ ] **Interactive Configuration Wizard**: A guided, interactive setup process for first-time users (replacing manual command-line config).
 - [ ] **Comprehensive Documentation**: Complete API references, man pages, and a dedicated documentation site.
 
@@ -26,11 +29,14 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 **Focus**: Feature parity with top competitors, user experience improvements, and robust error handling.
 **Timeline**: Q2
 
+- [ ] **Smart Account Recommendation**: "Next Best Account" logic to suggest the most rested account (Green & Least Recently Used).
+- [ ] **Auto-Switching**: Automatically restore the best available account (`ga restore --auto`).
+- [ ] **Visual Usage Graphs**: ASCII bar charts in the terminal to visualize usage patterns over the last 7 days.
+- [ ] **Profile Portability**: Export/Import profiles (`ga profile export/import`) for easy migration between machines.
 - [ ] **Multi-Cloud Support**: Expand cloud storage support to AWS S3, Google Cloud Storage, and Azure Blob Storage.
 - [ ] **Configuration Profiles**: Support for named profiles (e.g., `--profile work`, `--profile personal`) to easily switch contexts.
 - [ ] **Enhanced TUI (Terminal User Interface)**: Rich dashboards, real-time progress bars for all long-running operations, and interactive tables.
-- [ ] **Robust Error Handling & Telemetry**: Standardized error codes, suggested fixes in error messages, and optional crash reporting (Sentry).
-- [ ] **Detailed Usage Reporting**: Generate granular reports on backup sizes, frequencies, and success rates.
+- [ ] **Robust Error Handling & Telemetry**: Standardized error codes, suggested fixes in error messages, and optional crash reporting.
 
 ---
 
@@ -39,6 +45,7 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 **Focus**: Webhooks, API exposure, 3rd party plugins, SDK generation, and extensibility.
 **Timeline**: Q3
 
+- [ ] **Desktop Notifications**: Background daemon/cron job to alert when an account becomes "READY".
 - [ ] **Webhook Notifications**: Integration with Slack, Discord, and PagerDuty for alerts on backup failures or rate limit warnings.
 - [ ] **REST API Server**: A standalone daemon exposing CLI functionality via HTTP endpoints for remote management.
 - [ ] **Python SDK**: A distribute-able Python library (`import geminiai`) allowing programmatic control of the tool.
@@ -67,41 +74,3 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [ ] **Gamification**: Achievements and stats tracking for uptime and successful backups.
 - [ ] **Voice Control Integration**: Execute backups via voice commands.
 - [ ] **Chaos Monkey Mode**: A testing mode that randomly simulates failures (network drops, disk full) to verify system resilience.
-
-
-
-
-
-
-  1. Smart Notifications (Desktop)
-   * Feature: Instead of checking ga cooldown, the CLI could run a background daemon (or a simple cron job)
-     that sends a desktop notification: "Account 'dhruv13x' is now READY!".
-   * Benefit: You don't have to poll the dashboard; it tells you when you can switch back.
-
-  2. "Next Best Account" Recommendation
-   * Feature: A command like ga suggest that automatically finds the best available account.
-   * Logic:
-       1. Check all accounts in the dashboard.
-       2. Filter for 🟢 READY.
-       3. Sort by "Longest time since last used" (to ensure deep rest) or "Least recently used".
-       4. Output: "Recommended: user_A@example.com (Available, last used 2 days ago)".
-
-  3. Auto-Switching (`ga auto-restore`)
-   * Feature: Combine ga suggest with ga restore.
-   * Command: ga restore --auto
-   * Behavior: It finds the best Green account and automatically restores it without you needing to type the
-     email or find the file.
-
-  4. Export/Import Profile
-   * Feature: If you get a new laptop, ga profile export -> profile.json.
-   * Benefit: Quickly bootstrap your entire dashboard state (including all account emails and history) on a
-     fresh machine without waiting for a sync or manual entry. (Though Cloud Sync already handles most of
-     this!).
-
-  5. Visual Graphs (Rich)
-   * Feature: Show a simple ASCII bar chart of usage over the last 7 days.
-   * Benefit: See which days you are hitting limits the most.
-o
-o
-
-
