@@ -73,6 +73,7 @@ geminiai --help
 - **☁️ Cloud Sync**: Seamlessly synchronize your backups between your local machine and the cloud.
 - **⏱️ Resets Management**: Track your Gemini free tier reset schedules to maximize usage without hitting limits.
 - **❄️ Cooldown Tracking**: Monitor account cooldown status to avoid rate limiting.
+- **📈 Visual Usage Stats**: Visualize usage patterns over the last 7 days.
 - **🩺 Doctor Mode**: Run a system diagnostic check to identify and fix issues.
 - **🔐 Credential Management**: Securely handle Backblaze B2 credentials via CLI, Environment Variables, or Doppler.
 - **🧹 Cleanup & Pruning**: Automatically prune old backups and clear temporary files to save space.

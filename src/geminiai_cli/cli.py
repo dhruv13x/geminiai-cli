@@ -19,6 +19,7 @@ from .prune import do_prune
 from .update import do_update, do_check_update
 from .cleanup import do_cleanup
 from .recommend import do_recommend
+from .stats import do_stats
 from .reset_helpers import (
     do_next_reset,
     do_capture_reset,
@@ -60,6 +61,7 @@ def print_rich_help():
         ("resets", "Manage Gemini free tier reset schedules"),
         ("cooldown", "Show account cooldown status"),
         ("recommend", "Get the next best account recommendation"),
+        ("stats", "Show usage statistics (last 7 days)"),
     ]
     
     for cmd, desc in commands:
@@ -268,6 +270,9 @@ def main():
     recommend_parser = subparsers.add_parser("recommend", aliases=["next"], help="Suggest the next best account (Green & Least Recently Used).")
     # No arguments needed for now, but could add specific filters later.
 
+    # Stats command
+    stats_parser = subparsers.add_parser("stats", aliases=["usage"], help="Show usage statistics (last 7 days).")
+
     args = parser.parse_args()
 
     if args.command == "backup":
@@ -346,6 +351,8 @@ def main():
             do_cooldown_list(args)
     elif args.command == "recommend" or args.command == "next":
         do_recommend(args)
+    elif args.command == "stats" or args.command == "usage":
+        do_stats(args)
     elif args.command == "resets":
         if args.list:
             do_list_resets()

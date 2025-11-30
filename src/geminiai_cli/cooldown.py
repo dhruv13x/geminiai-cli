@@ -10,6 +10,7 @@ from .ui import cprint, console, NEON_CYAN, NEON_GREEN, NEON_YELLOW, NEON_RED, R
 from .b2 import B2Manager
 from .credentials import resolve_credentials
 from .reset_helpers import get_all_resets, remove_entry_by_id, sync_resets_with_cloud
+from . import history
 
 # ... existing code ...
 
@@ -152,6 +153,9 @@ def record_switch(email: str, args=None):
     if not email:
         return
         
+    # Record to history log
+    history.record_event(email, "switch")
+
     # If cloud is configured, sync down the master file first to merge with it.
     if args:
         _sync_cooldown_file(direction='download', args=args)
