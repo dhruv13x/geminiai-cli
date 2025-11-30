@@ -3,15 +3,15 @@ from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 from freezegun import freeze_time
 
-from src.geminiai_cli.recommend import get_recommendation, AccountStatus
+from geminiai_cli.recommend import get_recommendation, AccountStatus
 
 # Constants matching implementation
 COOLDOWN_HOURS = 24
 
 @pytest.fixture
 def mock_data_sources():
-    with patch("src.geminiai_cli.recommend.get_cooldown_data") as mock_cd, \
-         patch("src.geminiai_cli.recommend.get_all_resets") as mock_resets:
+    with patch("geminiai_cli.recommend.get_cooldown_data") as mock_cd, \
+         patch("geminiai_cli.recommend.get_all_resets") as mock_resets:
         yield mock_cd, mock_resets
 
 @freeze_time("2025-01-01 12:00:00")
