@@ -4,6 +4,7 @@
 
 import os
 import sys
+import io
 from .ui import cprint, NEON_GREEN, NEON_RED, NEON_YELLOW
 
 try:
@@ -44,6 +45,20 @@ class B2Manager:
         except Exception as e:
             cprint(NEON_RED, f"[CLOUD] Upload failed: {str(e)}")
 
+    def upload_string(self, data_str, remote_name):
+        """Uploads a string directly to B2."""
+        cprint(NEON_YELLOW, f"[CLOUD] Syncing cooldowns -> {remote_name}...")
+        try:
+            data_bytes = data_str.encode('utf-8')
+            self.bucket.upload_bytes(
+                data_bytes=data_bytes,
+                file_name=remote_name
+            )
+            cprint(NEON_GREEN, "[CLOUD] Cooldowns synced successfully!")
+        except Exception as e:
+            cprint(NEON_RED, f"[CLOUD] Upload failed: {str(e)}")
+            raise
+
     def list_backups(self):
         """Returns a generator of file versions."""
         return self.bucket.ls(recursive=True)
@@ -58,3 +73,16 @@ class B2Manager:
         except Exception as e:
             cprint(NEON_RED, f"[CLOUD] Download failed: {str(e)}")
             sys.exit(1)
+
+    def download_to_string(self, remote_name):
+        """Downloads a file from B2 directly to a string. Returns None if not found."""
+        try:
+            download_dest = self.bucket.download_file_by_name(remote_name)
+            mem_file = io.BytesIO()
+            download_dest.save(mem_file)
+            mem_file.seek(0)
+            return mem_file.read().decode('utf-8')
+        except Exception:
+            # Squelch errors (like 404) for this specific helper,
+            # assuming caller handles "None" as "file doesn't exist yet".
+            return None

@@ -444,5 +444,107 @@ def remove_entry_by_id(id_or_email: str) -> bool:
     return removed
 
 # ------------------------
+# Automated Cooldown & Cloud Sync
+# ------------------------
+def add_24h_cooldown_for_email(email: str) -> Dict[str, Any]:
+    """
+    Manually adds a 24-hour cooldown for the given email starting NOW.
+    Used when switching OUT of an account.
+    """
+    now = _now_ist()
+    reset_dt = now + timedelta(hours=24)
+    
+    entry = {
+        "id": str(uuid.uuid4())[:8],
+        "email": email,
+        "saved_string": "Auto-detected 24h cooldown on account switch",
+        "reset_ist": reset_dt.isoformat(),
+        "saved_at": now.isoformat()
+    }
+    
+    entries = _load_store()
+    # Remove existing entries for this email to avoid duplicates, 
+    # assuming the new 24h cooldown is the most relevant authority.
+    # actually, let's just append. The list/merge logic handles duplicates by 'latest' usually.
+    # But to be clean, let's remove old ones for this email locally first.
+    entries = [e for e in entries if e.get("email") != email]
+    entries.append(entry)
+    
+    _save_store(entries)
+    cprint(NEON_GREEN, f"[INFO] Started 24h cooldown for {email} (until {reset_dt.strftime('%d %b %I:%M %p')})")
+    return entry
+
+def merge_resets(local: List[Dict], remote: List[Dict]) -> List[Dict]:
+    """
+    Merges two lists of resets.
+    Strategy:
+     - Key by 'email'.
+     - If email exists in both, keep the one with LATER reset_ist.
+     - If email is missing, keep entry (keyed by ID to avoid total dupes if possible, but email is primary).
+    """
+    merged_map = {}
+    
+    all_entries = local + remote
+    
+    for e in all_entries:
+        email = e.get("email")
+        if not email:
+            # Entries without email are hard to de-dupe logic-wise, just keep them by ID?
+            # For now, we'll just let them exist if IDs are unique.
+            # If IDs collide, last one wins.
+            merged_map[e.get("id", str(uuid.uuid4()))] = e
+            continue
+            
+        email = email.lower()
+        
+        if email not in merged_map:
+            merged_map[email] = e
+        else:
+            # Compare dates
+            try:
+                curr_reset = datetime.fromisoformat(merged_map[email]["reset_ist"])
+                new_reset = datetime.fromisoformat(e["reset_ist"])
+                
+                if new_reset > curr_reset:
+                    merged_map[email] = e
+            except Exception:
+                # if parse fails, stick with what we have or overwrite?
+                # Let's assume 'e' is valid if we are here, or if both invalid, whatever.
+                pass
+
+    return list(merged_map.values())
+
+def sync_resets_with_cloud(b2_manager):
+    """
+    Downloads cloud cooldowns, merges with local, and pushes back.
+    """
+    CLOUD_FILE = "gemini-cooldown.json"
+    
+    cprint(NEON_CYAN, "Syncing cooldowns with cloud...")
+    
+    # 1. Download
+    remote_json_str = b2_manager.download_to_string(CLOUD_FILE)
+    remote_entries = []
+    if remote_json_str:
+        try:
+            remote_entries = json.loads(remote_json_str)
+        except json.JSONDecodeError:
+            cprint(NEON_YELLOW, "[WARN] Cloud cooldown file was corrupt. Overwriting.")
+    
+    # 2. Merge
+    local_entries = _load_store()
+    merged = merge_resets(local_entries, remote_entries)
+    
+    # 3. Save Local
+    _save_store(merged)
+    
+    # 4. Upload
+    try:
+        merged_json_str = json.dumps(merged, ensure_ascii=False, indent=2)
+        b2_manager.upload_string(merged_json_str, CLOUD_FILE)
+    except Exception as e:
+        cprint(NEON_RED, f"[ERROR] Failed to upload cooldowns: {e}")
+
+# ------------------------
 # End of file
 # ------------------------

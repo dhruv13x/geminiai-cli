@@ -36,6 +36,8 @@ from .settings import get_setting
 from .credentials import resolve_credentials
 from .session import get_active_session
 from .cooldown import record_switch
+from .reset_helpers import add_24h_cooldown_for_email, sync_resets_with_cloud
+from .ui import cprint, NEON_YELLOW, NEON_RED
 ...
 LOCKFILE = "/var/lock/gemini-backup.lock"
 
@@ -309,6 +311,35 @@ def main():
 
             # Check for account switch and record it
             if not args.dry_run:
+                # --- Auto-Cooldown for Outgoing Account ---
+                if email_before:
+                    cprint(NEON_YELLOW, f"Auto-adding 24h cooldown for outgoing account: {email_before}")
+                    add_24h_cooldown_for_email(email_before)
+                    
+                    # Sync with Cloud
+                    try:
+                        b2_for_sync = None
+                        if args.cloud:
+                            # Re-use the B2 instance from the restore process
+                            # (It is defined in the 'if args.cloud:' block above)
+                            b2_for_sync = locals().get('b2') 
+                        
+                        if not b2_for_sync:
+                            # Try to resolve credentials independently
+                            try:
+                                kid, key, bkt = resolve_credentials(args)
+                                if kid and key and bkt:
+                                    b2_for_sync = B2Manager(kid, key, bkt)
+                            except Exception:
+                                # Credentials might not be configured, skip sync
+                                pass
+                        
+                        if b2_for_sync:
+                            sync_resets_with_cloud(b2_for_sync)
+                    except Exception as e:
+                        cprint(NEON_RED, f"[WARN] Could not sync resets to cloud: {e}")
+                # ------------------------------------------
+
                 email_after = get_active_session()
                 if email_before != email_after and email_after is not None:
                     print(f"Account switch detected: -> {email_after}")
