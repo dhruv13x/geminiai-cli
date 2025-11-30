@@ -188,6 +188,7 @@ def main():
     restore_parser.add_argument("--bucket", help="B2 Bucket Name")
     restore_parser.add_argument("--b2-id", help="B2 Key ID")
     restore_parser.add_argument("--b2-key", help="B2 App Key")
+    restore_parser.add_argument("--auto", action="store_true", help="Automatically restore the best available account")
 
     # Integrity check command
     integrity_parser = subparsers.add_parser("check-integrity", help="Check integrity of current configuration against the latest backup.")
@@ -302,6 +303,7 @@ def main():
         if args.bucket: sys.argv.extend(["--bucket", args.bucket])
         if args.b2_id: sys.argv.extend(["--b2-id", args.b2_id])
         if args.b2_key: sys.argv.extend(["--b2-key", args.b2_key])
+        if args.auto: sys.argv.append("--auto")
         restore_main()
     elif args.command == "check-integrity":
         sys.argv = ["geminiai-check-integrity"]

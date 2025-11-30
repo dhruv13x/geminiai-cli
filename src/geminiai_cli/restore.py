@@ -37,7 +37,8 @@ from .credentials import resolve_credentials
 from .session import get_active_session
 from .cooldown import record_switch
 from .reset_helpers import add_24h_cooldown_for_email, sync_resets_with_cloud
-from .ui import cprint, NEON_YELLOW, NEON_RED
+from .recommend import get_recommendation, Recommendation
+from .ui import cprint, NEON_YELLOW, NEON_RED, NEON_GREEN, NEON_CYAN
 ...
 LOCKFILE = "/var/lock/gemini-backup.lock"
 
@@ -101,6 +102,60 @@ def find_oldest_archive_backup(search_dir: str) -> Optional[str]:
     return candidates[0][1]
 
 
+def find_latest_archive_backup_for_email(search_dir: str, email: str) -> Optional[str]:
+    """
+    Search search_dir for backup archives (*.gemini.tar.gz) matching the
+    timestamp pattern AND the email. Returns the LATEST (newest) backup.
+    """
+    candidates: list[Tuple[time.struct_time, str]] = []
+    try:
+        for entry in os.listdir(search_dir):
+            full_path = os.path.join(search_dir, entry)
+            if not (os.path.isfile(full_path) and entry.endswith(".gemini.tar.gz")):
+                continue
+
+            # Robust matching: Parse filename to extract email
+            # Format: YYYY-MM-DD_HHMMSS-<email>.gemini.tar.gz
+            parts = entry.split("-", 2)
+            if len(parts) < 3:
+                continue
+
+            # parts[0] = YYYY
+            # parts[1] = MM
+            # parts[2] = DD_HHMMSS-<email>.gemini.tar.gz
+            # Wait, split by '-' isn't great because email can contain dashes.
+
+            # Use regex from config if possible, or just look for the email suffix pattern.
+            # Filename: {timestamp_str}-{email}.gemini.tar.gz
+            # where timestamp_str is YYYY-MM-DD_HHMMSS (17 chars)
+
+            # Extract suffix after first 18 chars (timestamp + hyphen)
+            if len(entry) <= 18:
+                continue
+
+            suffix = entry[18:] # <email>.gemini.tar.gz
+            if not suffix.endswith(".gemini.tar.gz"):
+                continue
+
+            email_in_file = suffix[:-14] # remove .gemini.tar.gz
+
+            if email_in_file != email:
+                continue
+
+            ts = parse_timestamp_from_name(entry)
+            if ts:
+                candidates.append((ts, full_path))
+    except FileNotFoundError:
+        return None
+
+    if not candidates:
+        return None
+
+    # Sort by timestamp struct_time DESCENDING (latest first)
+    candidates.sort(key=lambda x: time.mktime(x[0]), reverse=True)
+    return candidates[0][1]
+
+
 def extract_archive(archive_path: str, extract_to: str):
     os.makedirs(extract_to, exist_ok=True)
     cmd = f"tar -C {shlex_quote(extract_to)} -xzf {shlex_quote(archive_path)}"
@@ -120,6 +175,7 @@ def main():
     p.add_argument("--bucket", help="B2 Bucket Name")
     p.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
     p.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
+    p.add_argument("--auto", action="store_true", help="Automatically restore the next best available account")
     args = p.parse_args()
 
     dest = os.path.abspath(os.path.expanduser(args.dest))
@@ -151,7 +207,31 @@ def main():
 
         target_file_name = None
 
-        if args.from_archive:
+        if args.auto:
+            rec = get_recommendation()
+            if not rec:
+                cprint(NEON_RED, "No 'Green' (Ready) accounts available for auto-switch.")
+                sys.exit(1)
+
+            target_email = rec.email
+            cprint(NEON_CYAN, f"Auto-switch recommendation: {target_email}")
+
+            # Filter files for this email
+            candidates = []
+            for ts, fname in all_files:
+                if target_email in fname:
+                    candidates.append((ts, fname))
+
+            if not candidates:
+                cprint(NEON_RED, f"No backups found in cloud for recommended account: {target_email}")
+                sys.exit(1)
+
+            # Select LATEST (newest) for auto-switch
+            candidates.sort(key=lambda x: time.mktime(x[0]), reverse=True)
+            target_file_name = candidates[0][1]
+            cprint(NEON_GREEN, f"Selected latest cloud backup for {target_email}: {target_file_name}")
+
+        elif args.from_archive:
             # User requested a specific file
             wanted_name = os.path.basename(args.from_archive)
             # Check if it exists in the list we just fetched
@@ -181,6 +261,25 @@ def main():
         
         from_archive = temp_download_path
     # ---------------------------------------
+
+    elif args.auto:
+        rec = get_recommendation()
+        if not rec:
+            cprint(NEON_RED, "No 'Green' (Ready) accounts available for auto-switch.")
+            sys.exit(1)
+
+        target_email = rec.email
+        cprint(NEON_CYAN, f"Auto-switch recommendation: {target_email}")
+
+        sd = os.path.abspath(os.path.expanduser(args.search_dir))
+        latest_archive = find_latest_archive_backup_for_email(sd, target_email)
+
+        if not latest_archive:
+            cprint(NEON_RED, f"No backups found locally for recommended account: {target_email}")
+            sys.exit(1)
+
+        from_archive = latest_archive
+        cprint(NEON_GREEN, f"Selected latest local backup for {target_email}: {from_archive}")
 
     elif args.from_dir:
         chosen_src = os.path.abspath(os.path.expanduser(args.from_dir))
