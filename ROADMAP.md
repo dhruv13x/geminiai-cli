@@ -67,3 +67,41 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [ ] **Gamification**: Achievements and stats tracking for uptime and successful backups.
 - [ ] **Voice Control Integration**: Execute backups via voice commands.
 - [ ] **Chaos Monkey Mode**: A testing mode that randomly simulates failures (network drops, disk full) to verify system resilience.
+
+
+
+
+
+
+  1. Smart Notifications (Desktop)
+   * Feature: Instead of checking ga cooldown, the CLI could run a background daemon (or a simple cron job)
+     that sends a desktop notification: "Account 'dhruv13x' is now READY!".
+   * Benefit: You don't have to poll the dashboard; it tells you when you can switch back.
+
+  2. "Next Best Account" Recommendation
+   * Feature: A command like ga suggest that automatically finds the best available account.
+   * Logic:
+       1. Check all accounts in the dashboard.
+       2. Filter for 🟢 READY.
+       3. Sort by "Longest time since last used" (to ensure deep rest) or "Least recently used".
+       4. Output: "Recommended: user_A@example.com (Available, last used 2 days ago)".
+
+  3. Auto-Switching (`ga auto-restore`)
+   * Feature: Combine ga suggest with ga restore.
+   * Command: ga restore --auto
+   * Behavior: It finds the best Green account and automatically restores it without you needing to type the
+     email or find the file.
+
+  4. Export/Import Profile
+   * Feature: If you get a new laptop, ga profile export -> profile.json.
+   * Benefit: Quickly bootstrap your entire dashboard state (including all account emails and history) on a
+     fresh machine without waiting for a sync or manual entry. (Though Cloud Sync already handles most of
+     this!).
+
+  5. Visual Graphs (Rich)
+   * Feature: Show a simple ASCII bar chart of usage over the last 7 days.
+   * Benefit: See which days you are hitting limits the most.
+o
+o
+
+

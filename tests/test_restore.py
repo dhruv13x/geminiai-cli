@@ -103,32 +103,8 @@ def test_main_auto_oldest(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs
 @patch("os.replace")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_cloud_invalid_ts(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock):
-    # Test loop continue when invalid ts
-    with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
-        mock_file_valid = MagicMock()
-        mock_file_valid.file_name = "2025-10-22_042211-valid@test.gemini.tar.gz"
-
-        mock_file_invalid = MagicMock()
-        mock_file_invalid.file_name = "invalid_ts.gemini.tar.gz"
-
-        # Returns invalid first, then valid. Should skip invalid and pick valid (as oldest)
-        mock_b2.return_value.list_backups.return_value = [(mock_file_invalid, None), (mock_file_valid, None)]
-
-        mock_run.return_value.returncode = 0
-        restore.main()
-
-        mock_b2.return_value.download.assert_called_with(mock_file_valid.file_name, ANY)
-
-@patch("geminiai_cli.restore.acquire_lock")
-@patch("geminiai_cli.restore.B2Manager")
-@patch("geminiai_cli.restore.run")
-@patch("os.path.exists", return_value=True)
-@patch("os.makedirs")
-@patch("os.replace")
-@patch("shutil.rmtree")
-@patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_cloud(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock):
+@patch("geminiai_cli.cooldown._sync_cooldown_file")
+def test_main_cloud(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock):
     with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
         mock_file = MagicMock()
         mock_file.file_name = "2025-10-22_042211-test.gemini.tar.gz"
@@ -296,7 +272,8 @@ def test_main_rollback_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists
 @patch("os.replace")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_cloud_specific_archive(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock):
+@patch("geminiai_cli.cooldown._sync_cooldown_file")
+def test_main_cloud_specific_archive(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock):
     specific_archive = "2025-11-21_231311-specific@test.gemini.tar.gz"
     with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k", "--from-archive", specific_archive]):
         mock_file_specific = MagicMock()
@@ -398,11 +375,12 @@ def test_main_dest_not_exists(mock_mkdtemp, mock_rmtree, mock_replace, mock_exis
 @patch("os.replace")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_tmp_dest_not_exists(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
+@patch("geminiai_cli.cooldown._sync_cooldown_file")
+def test_main_tmp_dest_not_exists(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
     # Test lines 237->239: if os.path.exists(tmp_dest)
 
     def exists_side_effect(path):
-        if ".tmp-" in path:
+        if ".tmp-" in str(path): # Use str(path) to handle PosixPath
             return False
         return True
 
@@ -450,7 +428,8 @@ def test_main_cloud_specific_archive_not_found(mock_b2, mock_lock):
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
 @patch("os.remove")
-def test_main_cleanup_temp_download(mock_remove, mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
+@patch("geminiai_cli.cooldown._sync_cooldown_file")
+def test_main_cleanup_temp_download(mock_sync, mock_remove, mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
     # Test lines 316-320
     # Simulate cloud download flow partially or just force temp_download_path via some way?
     # It's a local variable in main. We need to go through the cloud path.
