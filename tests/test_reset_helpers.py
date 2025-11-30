@@ -6,6 +6,7 @@ import os
 import subprocess
 from datetime import datetime, timedelta, timezone
 from geminiai_cli import reset_helpers
+import json
 
 def test_run_cmd_safe():
     with patch("subprocess.run") as mock_run:
@@ -371,3 +372,97 @@ def test_do_next_reset_malformed_entries(mock_cprint, mock_load):
     ]
     reset_helpers.do_next_reset()
     assert any("No valid upcoming resets" in str(args) for args in mock_cprint.call_args_list)
+
+# Tests for Cooldown & Cloud Sync
+@patch("geminiai_cli.reset_helpers._now_ist")
+@patch("geminiai_cli.reset_helpers._load_store")
+@patch("geminiai_cli.reset_helpers._save_store")
+def test_add_24h_cooldown_for_email(mock_save, mock_load, mock_now):
+    mock_now.return_value = datetime(2023, 1, 1, 0, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    mock_load.return_value = [{"email": "test@test.com", "id": "old"}]
+
+    entry = reset_helpers.add_24h_cooldown_for_email("test@test.com")
+
+    assert entry["email"] == "test@test.com"
+    # Should replace old entry
+    args = mock_save.call_args[0][0]
+    assert len(args) == 1
+    assert args[0]["id"] != "old"
+    assert "reset_ist" in entry
+
+def test_merge_resets():
+    now_ts = datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat()
+    later_ts = (datetime.now(timezone(timedelta(hours=5, minutes=30))) + timedelta(hours=1)).isoformat()
+
+    local = [
+        {"id": "1", "email": "a@a.com", "reset_ist": now_ts},
+        {"id": "2", "email": "b@b.com", "reset_ist": now_ts},
+        {"id": "3", "reset_ist": now_ts} # No email
+    ]
+    remote = [
+        {"id": "1", "email": "a@a.com", "reset_ist": later_ts}, # Update A
+        {"id": "4", "email": "c@c.com", "reset_ist": now_ts},   # New C
+        {"id": "5", "reset_ist": now_ts} # No email, different ID
+    ]
+
+    merged = reset_helpers.merge_resets(local, remote)
+
+    merged_map = {e.get("email"): e for e in merged if e.get("email")}
+    assert merged_map["a@a.com"]["reset_ist"] == later_ts
+    assert "b@b.com" in merged_map
+    assert "c@c.com" in merged_map
+
+    # Check no-email entries
+    no_emails = [e for e in merged if not e.get("email")]
+    # Should contain id 3 and 5 (assuming they are preserved)
+    ids = [e.get("id") for e in no_emails]
+    assert "3" in ids
+    assert "5" in ids
+
+def test_merge_resets_invalid_ts():
+    local = [{"email": "a@a.com", "reset_ist": "invalid"}]
+    remote = [{"email": "a@a.com", "reset_ist": "also_invalid"}]
+
+    # Should not crash
+    merged = reset_helpers.merge_resets(local, remote)
+    assert len(merged) == 1
+
+@patch("geminiai_cli.reset_helpers._load_store")
+@patch("geminiai_cli.reset_helpers._save_store")
+def test_sync_resets_with_cloud(mock_save, mock_load):
+    mock_b2 = MagicMock()
+    mock_b2.download_to_string.return_value = '[{"email": "remote@test.com", "reset_ist": "iso"}]'
+    mock_load.return_value = []
+
+    reset_helpers.sync_resets_with_cloud(mock_b2)
+
+    # Check saved locally
+    saved_args = mock_save.call_args[0][0]
+    assert len(saved_args) == 1
+    assert saved_args[0]["email"] == "remote@test.com"
+
+    # Check uploaded back
+    mock_b2.upload_string.assert_called()
+
+@patch("geminiai_cli.reset_helpers._load_store")
+@patch("geminiai_cli.reset_helpers._save_store")
+def test_sync_resets_with_cloud_download_corrupt(mock_save, mock_load):
+    mock_b2 = MagicMock()
+    mock_b2.download_to_string.return_value = 'corrupt json'
+    mock_load.return_value = []
+
+    reset_helpers.sync_resets_with_cloud(mock_b2)
+
+    # Should handle gracefully and proceed
+    mock_b2.upload_string.assert_called()
+
+@patch("geminiai_cli.reset_helpers._load_store")
+@patch("geminiai_cli.reset_helpers._save_store")
+def test_sync_resets_with_cloud_upload_fail(mock_save, mock_load):
+    mock_b2 = MagicMock()
+    mock_b2.download_to_string.return_value = '[]'
+    mock_b2.upload_string.side_effect = Exception("Upload fail")
+    mock_load.return_value = []
+
+    # Should not crash
+    reset_helpers.sync_resets_with_cloud(mock_b2)

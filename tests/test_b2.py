@@ -3,6 +3,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import sys
+import io
 
 # Mock b2sdk module
 mock_b2sdk = MagicMock()
@@ -87,3 +88,52 @@ def test_b2_manager_upload_with_name():
 
     b2.upload("local_file", remote_name="remote_file")
     mock_bucket.upload_local_file.assert_called_with(local_file="local_file", file_name="remote_file")
+
+def test_b2_manager_upload_string_success():
+    mock_bucket = MagicMock()
+    mock_b2_api_class.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2 = B2Manager("id", "key", "bucket")
+
+    data = "some data"
+    b2.upload_string(data, "remote_file")
+
+    mock_bucket.upload_bytes.assert_called_with(
+        data_bytes=data.encode('utf-8'),
+        file_name="remote_file"
+    )
+
+def test_b2_manager_upload_string_fail():
+    mock_bucket = MagicMock()
+    mock_bucket.upload_bytes.side_effect = Exception("Upload bytes fail")
+    mock_b2_api_class.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2 = B2Manager("id", "key", "bucket")
+
+    with pytest.raises(Exception):
+        b2.upload_string("data", "remote_file")
+
+def test_b2_manager_download_to_string_success():
+    mock_bucket = MagicMock()
+    mock_download_dest = MagicMock()
+
+    # Mock save behavior to write to the BytesIO buffer passed to it
+    def side_effect_save(file_obj):
+        file_obj.write(b"remote content")
+
+    mock_download_dest.save.side_effect = side_effect_save
+    mock_bucket.download_file_by_name.return_value = mock_download_dest
+
+    mock_b2_api_class.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2 = B2Manager("id", "key", "bucket")
+
+    result = b2.download_to_string("remote_file")
+    assert result == "remote content"
+    mock_bucket.download_file_by_name.assert_called_with("remote_file")
+
+def test_b2_manager_download_to_string_fail():
+    mock_bucket = MagicMock()
+    mock_bucket.download_file_by_name.side_effect = Exception("Not found")
+    mock_b2_api_class.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2 = B2Manager("id", "key", "bucket")
+
+    result = b2.download_to_string("remote_file")
+    assert result is None
