@@ -39,7 +39,7 @@ from .cooldown import record_switch
 from .reset_helpers import add_24h_cooldown_for_email, sync_resets_with_cloud
 from .recommend import get_recommendation, Recommendation
 from .ui import cprint, NEON_YELLOW, NEON_RED, NEON_GREEN, NEON_CYAN
-...
+
 LOCKFILE = "/var/lock/gemini-backup.lock"
 
 def acquire_lock(path: str = LOCKFILE):
@@ -116,15 +116,6 @@ def find_latest_archive_backup_for_email(search_dir: str, email: str) -> Optiona
 
             # Robust matching: Parse filename to extract email
             # Format: YYYY-MM-DD_HHMMSS-<email>.gemini.tar.gz
-            parts = entry.split("-", 2)
-            if len(parts) < 3:
-                continue
-
-            # parts[0] = YYYY
-            # parts[1] = MM
-            # parts[2] = DD_HHMMSS-<email>.gemini.tar.gz
-            # Wait, split by '-' isn't great because email can contain dashes.
-
             # Use regex from config if possible, or just look for the email suffix pattern.
             # Filename: {timestamp_str}-{email}.gemini.tar.gz
             # where timestamp_str is YYYY-MM-DD_HHMMSS (17 chars)
@@ -161,22 +152,16 @@ def extract_archive(archive_path: str, extract_to: str):
     cmd = f"tar -C {shlex_quote(extract_to)} -xzf {shlex_quote(archive_path)}"
     run(cmd)
 
-def main():
+def perform_restore(args: argparse.Namespace):
     email_before = get_active_session()
     
-    p = argparse.ArgumentParser()
-    p.add_argument("--from-dir", help="Directory backup to restore from (legacy, archive is preferred)")
-    p.add_argument("--from-archive", help="Tar.gz archive to restore from")
-    p.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for timestamped backups when no source is specified (default: ~/geminiai_backups)")
-    p.add_argument("--dest", default="~/.gemini", help="Destination (default ~/.gemini)")
-    p.add_argument("--force", action="store_true", help="Allow destructive replace without keeping .bak")
-    p.add_argument("--dry-run", action="store_true", help="Do a dry run without destructive actions")
-    p.add_argument("--cloud", action="store_true", help="Restore from Cloud (B2)")
-    p.add_argument("--bucket", help="B2 Bucket Name")
-    p.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
-    p.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
-    p.add_argument("--auto", action="store_true", help="Automatically restore the next best available account")
-    args = p.parse_args()
+    # Check for required args if not set (legacy check)
+    if not hasattr(args, 'dest') or args.dest is None:
+        args.dest = "~/.gemini"
+
+    # Handle search_dir default if missing
+    if not hasattr(args, 'search_dir') or args.search_dir is None:
+        args.search_dir = DEFAULT_BACKUP_DIR
 
     dest = os.path.abspath(os.path.expanduser(args.dest))
     ts_now = time.strftime("%Y%m%d-%H%M%S")
@@ -186,7 +171,7 @@ def main():
     temp_download_path: Optional[str] = None # Initialize for cloud downloads
 
     # --- NEW CODE BLOCK: CLOUD DISCOVERY ---
-    if args.cloud:
+    if hasattr(args, 'cloud') and args.cloud:
         key_id, app_key, bucket_name = resolve_credentials(args)
 
         b2 = B2Manager(key_id, app_key, bucket_name)
@@ -207,7 +192,7 @@ def main():
 
         target_file_name = None
 
-        if args.auto:
+        if hasattr(args, 'auto') and args.auto:
             rec = get_recommendation()
             if not rec:
                 cprint(NEON_RED, "No 'Green' (Ready) accounts available for auto-switch.")
@@ -231,7 +216,7 @@ def main():
             target_file_name = candidates[0][1]
             cprint(NEON_GREEN, f"Selected latest cloud backup for {target_email}: {target_file_name}")
 
-        elif args.from_archive:
+        elif hasattr(args, 'from_archive') and args.from_archive:
             # User requested a specific file
             wanted_name = os.path.basename(args.from_archive)
             # Check if it exists in the list we just fetched
@@ -265,7 +250,7 @@ def main():
         from_archive = temp_download_path
     # ---------------------------------------
 
-    elif args.auto:
+    elif hasattr(args, 'auto') and args.auto:
         rec = get_recommendation()
         if not rec:
             cprint(NEON_RED, "No 'Green' (Ready) accounts available for auto-switch.")
@@ -284,12 +269,12 @@ def main():
         from_archive = latest_archive
         cprint(NEON_GREEN, f"Selected latest local backup for {target_email}: {from_archive}")
 
-    elif args.from_dir:
+    elif hasattr(args, 'from_dir') and args.from_dir:
         chosen_src = os.path.abspath(os.path.expanduser(args.from_dir))
         if not os.path.exists(chosen_src):
             print(f"Specified --from-dir not found: {chosen_src}")
             sys.exit(1)
-    elif args.from_archive:
+    elif hasattr(args, 'from_archive') and args.from_archive:
         # First, try the path as provided by the user
         user_path = os.path.abspath(os.path.expanduser(args.from_archive))
         
@@ -325,7 +310,7 @@ def main():
         try:
             if from_archive:
                 print(f"Extracting archive {from_archive} -> {work_tmp}")
-                if not args.dry_run:
+                if not getattr(args, 'dry_run', False):
                     extract_archive(from_archive, work_tmp)
                 else:
                     print("DRY RUN: would extract archive.")
@@ -338,7 +323,7 @@ def main():
             # Copy into temporary dest - to prepare verification
             tmp_dest = f"{dest}.tmp-{ts_now}"
             print(f"Copying {src_for_copy} -> {tmp_dest}")
-            if not args.dry_run:
+            if not getattr(args, 'dry_run', False):
                 if os.path.exists(tmp_dest):
                     shutil.rmtree(tmp_dest)
                 cp_cmd = f"cp -a {shlex_quote(src_for_copy)} {shlex_quote(tmp_dest)}"
@@ -348,7 +333,7 @@ def main():
 
             # Verify copy with diff -r
             print("Verifying copy with diff -r")
-            if not args.dry_run:
+            if not getattr(args, 'dry_run', False):
                 diff_proc = run(f"diff -r {shlex_quote(tmp_dest)} {shlex_quote(src_for_copy)}", capture=True, check=False)
                 if diff_proc.returncode != 0:
                     print("Verification FAILED (diff shows differences):")
@@ -366,8 +351,8 @@ def main():
             if os.path.exists(dest):
                 bakname = f"{dest}.bak-{ts_now}"
                 print(f"Preparing to move existing {dest} -> {bakname}")
-                if not args.dry_run:
-                    if args.force:
+                if not getattr(args, 'dry_run', False):
+                    if getattr(args, 'force', False):
                         print("--force: removing existing dest")
                         shutil.rmtree(dest)
                     else:
@@ -381,13 +366,13 @@ def main():
 
             # Install new .gemini (atomic replace)
             print(f"Installing new .gemini from {tmp_dest} -> {dest}")
-            if not args.dry_run:
+            if not getattr(args, 'dry_run', False):
                 os.replace(tmp_dest, dest)
             else:
                 print("DRY RUN: would os.replace(tmp_dest, dest)")
 
             # Post-restore verification
-            if not args.dry_run:
+            if not getattr(args, 'dry_run', False):
                 print("Post-restore verification: diff -r between restored dest and source")
                 diff2 = run(f"diff -r {shlex_quote(dest)} {shlex_quote(src_for_copy)}", capture=True, check=False)
                 if diff2.returncode != 0:
@@ -395,7 +380,7 @@ def main():
                     if diff2.stdout:
                         print(diff2.stdout)
                     print("Attempting rollback (if possible).")
-                    if not args.force and bakname and os.path.exists(bakname):
+                    if not getattr(args, 'force', False) and bakname and os.path.exists(bakname):
                         try:
                             os.replace(bakname, dest)
                             print("Rollback to previous copy succeeded.")
@@ -412,7 +397,7 @@ def main():
                 print("Previous .gemini moved to:", bakname)
 
             # Check for account switch and record it
-            if not args.dry_run:
+            if not getattr(args, 'dry_run', False):
                 # --- Auto-Cooldown for Outgoing Account ---
                 if email_before:
                     cprint(NEON_YELLOW, f"Auto-adding 24h cooldown for outgoing account: {email_before}")
@@ -421,7 +406,7 @@ def main():
                     # Sync with Cloud
                     try:
                         b2_for_sync = None
-                        if args.cloud:
+                        if getattr(args, 'cloud', False):
                             # Re-use the B2 instance from the restore process
                             # (It is defined in the 'if args.cloud:' block above)
                             b2_for_sync = locals().get('b2') 
@@ -471,6 +456,23 @@ def main():
             lockfd.close()
         except Exception:
             pass
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--from-dir", help="Directory backup to restore from (legacy, archive is preferred)")
+    p.add_argument("--from-archive", help="Tar.gz archive to restore from")
+    p.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for timestamped backups when no source is specified (default: ~/geminiai_backups)")
+    p.add_argument("--dest", default="~/.gemini", help="Destination (default ~/.gemini)")
+    p.add_argument("--force", action="store_true", help="Allow destructive replace without keeping .bak")
+    p.add_argument("--dry-run", action="store_true", help="Do a dry run without destructive actions")
+    p.add_argument("--cloud", action="store_true", help="Restore from Cloud (B2)")
+    p.add_argument("--bucket", help="B2 Bucket Name")
+    p.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
+    p.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
+    p.add_argument("--auto", action="store_true", help="Automatically restore the next best available account")
+    args = p.parse_args()
+
+    perform_restore(args)
 
 if __name__ == "__main__":
     main()

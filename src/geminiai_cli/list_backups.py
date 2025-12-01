@@ -15,16 +15,8 @@ from .settings import get_setting
 from .config import DEFAULT_BACKUP_DIR
 from .credentials import resolve_credentials
 
-def main():
-    parser = argparse.ArgumentParser(description="List available Gemini backups.")
-    parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for backups (default ~/geminiai_backups)")
-    parser.add_argument("--cloud", action="store_true", help="List backups from Cloud (B2)")
-    parser.add_argument("--bucket", help="B2 Bucket Name")
-    parser.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
-    parser.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
-    args = parser.parse_args()
-
-    if args.cloud:
+def perform_list_backups(args: argparse.Namespace):
+    if hasattr(args, 'cloud') and args.cloud:
         key_id, app_key, bucket_name = resolve_credentials(args)
 
         b2 = B2Manager(key_id, app_key, bucket_name)
@@ -42,6 +34,10 @@ def main():
             sys.exit(1)
 
     else: # List local backups
+        # Fallback if args missing
+        if not hasattr(args, 'search_dir') or args.search_dir is None:
+            args.search_dir = DEFAULT_BACKUP_DIR
+
         backup_dir = os.path.expanduser(args.search_dir)
 
         if not os.path.isdir(backup_dir):
@@ -60,6 +56,17 @@ def main():
 
         except OSError as e:
             cprint(NEON_RED, f"Error reading backup directory: {e}")
+
+def main():
+    parser = argparse.ArgumentParser(description="List available Gemini backups.")
+    parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for backups (default ~/geminiai_backups)")
+    parser.add_argument("--cloud", action="store_true", help="List backups from Cloud (B2)")
+    parser.add_argument("--bucket", help="B2 Bucket Name")
+    parser.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
+    parser.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
+    args = parser.parse_args()
+
+    perform_list_backups(args)
 
 if __name__ == "__main__":
     main()

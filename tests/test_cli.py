@@ -40,29 +40,29 @@ def test_main_backup(mock_perform_backup):
         main()
         mock_perform_backup.assert_called_once()
 
-@patch("geminiai_cli.cli.restore_main")
-def test_main_restore(mock_restore_main):
+@patch("geminiai_cli.cli.perform_restore")
+def test_main_restore(mock_perform_restore):
     with patch("sys.argv", ["geminiai", "restore"]):
         main()
-        mock_restore_main.assert_called_once()
+        mock_perform_restore.assert_called_once()
 
-@patch("geminiai_cli.cli.integrity_main")
-def test_main_integrity(mock_integrity_main):
+@patch("geminiai_cli.cli.perform_integrity_check")
+def test_main_integrity(mock_perform_integrity):
     with patch("sys.argv", ["geminiai", "check-integrity"]):
         main()
-        mock_integrity_main.assert_called_once()
+        mock_perform_integrity.assert_called_once()
 
-@patch("geminiai_cli.cli.list_backups_main")
-def test_main_list_backups(mock_list_backups_main):
+@patch("geminiai_cli.cli.perform_list_backups")
+def test_main_list_backups(mock_perform_list_backups):
     with patch("sys.argv", ["geminiai", "list-backups"]):
         main()
-        mock_list_backups_main.assert_called_once()
+        mock_perform_list_backups.assert_called_once()
 
-@patch("geminiai_cli.cli.check_b2_main")
-def test_main_check_b2(mock_check_b2_main):
+@patch("geminiai_cli.cli.perform_check_b2")
+def test_main_check_b2(mock_perform_check_b2):
     with patch("sys.argv", ["geminiai", "check-b2"]):
         main()
-        mock_check_b2_main.assert_called_once()
+        mock_perform_check_b2.assert_called_once()
 
 @patch("geminiai_cli.cli.do_list_resets")
 def test_main_list_resets(mock_list):
@@ -215,40 +215,40 @@ def test_main_backup_no_dest_parent(mock_backup):
         mock_backup.assert_called()
 
 # Test arg parsing for restore (cloud options)
-@patch("geminiai_cli.cli.restore_main")
+@patch("geminiai_cli.cli.perform_restore")
 def test_main_restore_cloud(mock_restore):
     with patch("sys.argv", ["geminiai", "restore", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k", "--dest", "d", "--force", "--dry-run", "--from-dir", "d", "--from-archive", "a", "--search-dir", "s"]):
         main()
         mock_restore.assert_called()
 
-@patch("geminiai_cli.cli.restore_main")
+@patch("geminiai_cli.cli.perform_restore")
 def test_main_restore_empty_search_dir(mock_restore):
     with patch("sys.argv", ["geminiai", "restore", "--search-dir", ""]):
         main()
         mock_restore.assert_called()
 
 # Test arg parsing for list-backups
-@patch("geminiai_cli.cli.list_backups_main")
+@patch("geminiai_cli.cli.perform_list_backups")
 def test_main_list_backups_args(mock_list):
      with patch("sys.argv", ["geminiai", "list-backups", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k", "--search-dir", "s"]):
         main()
         mock_list.assert_called()
 
-@patch("geminiai_cli.cli.list_backups_main")
+@patch("geminiai_cli.cli.perform_list_backups")
 def test_main_list_backups_empty_search_dir(mock_list):
      with patch("sys.argv", ["geminiai", "list-backups", "--search-dir", ""]):
         main()
         mock_list.assert_called()
 
 # Test arg parsing for check-b2
-@patch("geminiai_cli.cli.check_b2_main")
+@patch("geminiai_cli.cli.perform_check_b2")
 def test_main_check_b2_args(mock_check):
      with patch("sys.argv", ["geminiai", "check-b2", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
         main()
         mock_check.assert_called()
 
 # Test arg parsing for check-integrity
-@patch("geminiai_cli.cli.integrity_main")
+@patch("geminiai_cli.cli.perform_integrity_check")
 def test_main_integrity_args(mock_integrity):
     with patch("sys.argv", ["geminiai", "check-integrity", "--src", "s", "--search-dir", "d"]):
         main()
