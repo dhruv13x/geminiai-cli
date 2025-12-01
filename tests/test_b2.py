@@ -63,7 +63,7 @@ def test_b2_manager_download_fail(mock_mem_info, mock_b2_api):
     mock_b2_api.return_value.get_bucket_by_name.return_value = mock_bucket
     b2_mgr = b2.B2Manager("id", "key", "bucket")
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(Exception):
         b2_mgr.download("remote", "local")
 
 @patch("geminiai_cli.b2.B2Api")

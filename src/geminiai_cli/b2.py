@@ -72,7 +72,7 @@ class B2Manager:
             cprint(NEON_GREEN, "[CLOUD] Download successful!")
         except Exception as e:
             cprint(NEON_RED, f"[CLOUD] Download failed: {str(e)}")
-            sys.exit(1)
+            raise e
 
     def download_to_string(self, remote_name):
         """Downloads a file from B2 directly to a string. Returns None if not found."""

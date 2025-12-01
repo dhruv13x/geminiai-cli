@@ -101,7 +101,7 @@ def _sync_cooldown_file(direction: str, args):
                 cprint(NEON_GREEN, "Cooldown file synced from cloud.")
             except Exception as e:
                 # It's okay if the file doesn't exist yet in the cloud
-                if "file_not_present" in str(e) or "No such file" in str(e):
+                if "file_not_present" in str(e) or "No such file" in str(e) or "File not present" in str(e):
                     cprint(NEON_YELLOW, "No cooldown file found in the cloud. Using local version.")
                 else:
                     cprint(NEON_RED, f"Error downloading cooldown file: {e}")

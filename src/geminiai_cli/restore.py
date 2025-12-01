@@ -257,7 +257,10 @@ def main():
         # Ensure the directory for the temporary download exists
         os.makedirs(os.path.dirname(temp_download_path), exist_ok=True)
 
-        b2.download(target_file_name, temp_download_path)
+        try:
+            b2.download(target_file_name, temp_download_path)
+        except Exception:
+            sys.exit(1)
         
         from_archive = temp_download_path
     # ---------------------------------------
