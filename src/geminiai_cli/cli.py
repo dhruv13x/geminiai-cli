@@ -28,10 +28,10 @@ from .reset_helpers import (
 )
 from .config import NEON_YELLOW, NEON_CYAN, DEFAULT_BACKUP_DIR
 from .backup import perform_backup
-from .restore import main as restore_main
-from .integrity import main as integrity_main
-from .list_backups import main as list_backups_main
-from .check_b2 import main as check_b2_main
+from .restore import perform_restore
+from .integrity import perform_integrity_check
+from .list_backups import perform_list_backups
+from .check_b2 import perform_check_b2
 from .sync import cloud_sync, local_sync
 from .project_config import load_project_config, normalize_config_keys
 
@@ -278,47 +278,13 @@ def main():
     if args.command == "backup":
         perform_backup(args)
     elif args.command == "restore":
-        sys.argv = ["geminiai-restore"]
-        if args.from_dir:
-            sys.argv.extend(["--from-dir", args.from_dir])
-        if args.from_archive:
-            sys.argv.extend(["--from-archive", args.from_archive])
-        if args.search_dir:
-            sys.argv.extend(["--search-dir", args.search_dir])
-        if args.dest:
-            sys.argv.extend(["--dest", args.dest])
-        if args.force:
-            sys.argv.append("--force")
-        if args.dry_run:
-            sys.argv.append("--dry-run")
-        if args.cloud: sys.argv.append("--cloud")
-        if args.bucket: sys.argv.extend(["--bucket", args.bucket])
-        if args.b2_id: sys.argv.extend(["--b2-id", args.b2_id])
-        if args.b2_key: sys.argv.extend(["--b2-key", args.b2_key])
-        if args.auto: sys.argv.append("--auto")
-        restore_main()
+        perform_restore(args)
     elif args.command == "check-integrity":
-        sys.argv = ["geminiai-check-integrity"]
-        if args.src:
-            sys.argv.extend(["--src", args.src])
-        if args.search_dir:
-            sys.argv.extend(["--search-dir", args.search_dir])
-        integrity_main()
+        perform_integrity_check(args)
     elif args.command == "list-backups":
-        sys.argv = ["geminiai-list-backups"]
-        if args.search_dir:
-            sys.argv.extend(["--search-dir", args.search_dir])
-        if args.cloud: sys.argv.append("--cloud")
-        if args.bucket: sys.argv.extend(["--bucket", args.bucket])
-        if args.b2_id: sys.argv.extend(["--b2-id", args.b2_id])
-        if args.b2_key: sys.argv.extend(["--b2-key", args.b2_key])
-        list_backups_main()
+        perform_list_backups(args)
     elif args.command == "check-b2":
-        sys.argv = ["geminiai-check-b2"]
-        if args.bucket: sys.argv.extend(["--bucket", args.bucket])
-        if args.b2_id: sys.argv.extend(["--b2-id", args.b2_id])
-        if args.b2_key: sys.argv.extend(["--b2-key", args.b2_key])
-        check_b2_main()
+        perform_check_b2(args)
     elif args.command == "cloud-sync":
         cloud_sync(args)
     elif args.command == "local-sync":

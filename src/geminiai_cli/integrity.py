@@ -59,11 +59,12 @@ def find_latest_backup(search_dir: str) -> Optional[str]:
     candidates.sort(key=lambda x: time.mktime(x[0]), reverse=True)
     return candidates[0][1]
 
-def main():
-    p = argparse.ArgumentParser(description="Check integrity of current configuration against the latest backup.")
-    p.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
-    p.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for timestamped backups (default ~/geminiai_backups)")
-    args = p.parse_args()
+def perform_integrity_check(args: argparse.Namespace):
+    # Fallback if args missing or None
+    if not hasattr(args, 'src') or args.src is None:
+        args.src = "~/.gemini"
+    if not hasattr(args, 'search_dir') or args.search_dir is None:
+        args.search_dir = DEFAULT_BACKUP_DIR
 
     src = os.path.abspath(os.path.expanduser(args.src))
     search_dir = os.path.abspath(os.path.expanduser(args.search_dir))
@@ -91,6 +92,13 @@ def main():
             print(diff_proc.stdout)
         if diff_proc.stderr:
             print(diff_proc.stderr)
+
+def main():
+    p = argparse.ArgumentParser(description="Check integrity of current configuration against the latest backup.")
+    p.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
+    p.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for timestamped backups (default ~/geminiai_backups)")
+    args = p.parse_args()
+    perform_integrity_check(args)
 
 if __name__ == "__main__":
     main()

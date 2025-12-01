@@ -14,13 +14,7 @@ from .b2 import B2Manager
 from .settings import get_setting
 from .credentials import resolve_credentials
 
-def main():
-    parser = argparse.ArgumentParser(description="Verify Backblaze B2 credentials and bucket access.")
-    parser.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
-    parser.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
-    parser.add_argument("--bucket", help="B2 Bucket Name (or set env GEMINI_B2_BUCKET)")
-    args = parser.parse_args()
-
+def perform_check_b2(args: argparse.Namespace):
     # Resolve credentials (CLI arg > Doppler > Env Var > Config)
     key_id, app_key, bucket = resolve_credentials(args)
 
@@ -35,6 +29,15 @@ def main():
         # Catch any other unexpected exceptions
         cprint(NEON_RED, f"[ERROR] An unexpected error occurred: {e}")
         sys.exit(1)
+
+def main():
+    parser = argparse.ArgumentParser(description="Verify Backblaze B2 credentials and bucket access.")
+    parser.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
+    parser.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
+    parser.add_argument("--bucket", help="B2 Bucket Name (or set env GEMINI_B2_BUCKET)")
+    args = parser.parse_args()
+
+    perform_check_b2(args)
 
 if __name__ == "__main__":
     main()
