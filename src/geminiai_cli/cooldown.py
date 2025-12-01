@@ -96,15 +96,18 @@ def _sync_cooldown_file(direction: str, args):
 
         if direction == "download":
             cprint(NEON_CYAN, f"Downloading latest cooldown file from B2 bucket '{bucket_name}'...")
-            try:
-                b2.download(CLOUD_COOLDOWN_FILENAME, local_path)
-                cprint(NEON_GREEN, "Cooldown file synced from cloud.")
-            except Exception as e:
-                # It's okay if the file doesn't exist yet in the cloud
-                if "file_not_present" in str(e) or "No such file" in str(e) or "File not present" in str(e):
-                    cprint(NEON_YELLOW, "No cooldown file found in the cloud. Using local version.")
-                else:
-                    cprint(NEON_RED, f"Error downloading cooldown file: {e}")
+            content = b2.download_to_string(CLOUD_COOLDOWN_FILENAME)
+            
+            if content is None:
+                cprint(NEON_YELLOW, "No cooldown file found in the cloud. Using local version.")
+            else:
+                try:
+                    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                    with open(local_path, "w") as f:
+                        f.write(content)
+                    cprint(NEON_GREEN, "Cooldown file synced from cloud.")
+                except IOError as e:
+                    cprint(NEON_RED, f"Error writing local cooldown file: {e}")
 
         elif direction == "upload":
             if not os.path.exists(local_path):

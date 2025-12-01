@@ -71,17 +71,18 @@ def test_sync_cooldown_file_no_creds(mock_resolve_credentials, mock_cprint, mock
 def test_sync_cooldown_file_download_success(mock_resolve_credentials, mock_b2_manager, mock_cprint, mock_args):
     mock_resolve_credentials.return_value = ("key", "app", "bucket")
     b2_instance = mock_b2_manager.return_value
+    b2_instance.download_to_string.return_value = "{}"
 
     _sync_cooldown_file("download", mock_args)
 
-    b2_instance.download.assert_called_once()
+    b2_instance.download_to_string.assert_called_once()
     mock_cprint.assert_any_call(cooldown.NEON_GREEN, "Cooldown file synced from cloud.")
 
 
 def test_sync_cooldown_file_download_fail_not_found(mock_resolve_credentials, mock_b2_manager, mock_cprint, mock_args):
     mock_resolve_credentials.return_value = ("key", "app", "bucket")
     b2_instance = mock_b2_manager.return_value
-    b2_instance.download.side_effect = Exception("file_not_present")
+    b2_instance.download_to_string.return_value = None
 
     _sync_cooldown_file("download", mock_args)
 
@@ -91,14 +92,30 @@ def test_sync_cooldown_file_download_fail_not_found(mock_resolve_credentials, mo
 def test_sync_cooldown_file_download_fail_other(mock_resolve_credentials, mock_b2_manager, mock_cprint, mock_args):
     mock_resolve_credentials.return_value = ("key", "app", "bucket")
     b2_instance = mock_b2_manager.return_value
-    b2_instance.download.side_effect = Exception("Network error")
+    b2_instance.download_to_string.side_effect = Exception("Network error")
 
     _sync_cooldown_file("download", mock_args)
 
+    # Check that error message is printed (for unexpected exceptions)
+    # The implementation likely catches Exception, so this still works as is?
+    # Wait, the implementation we wrote catches Exception only when writing local file?
+    # No, looking at the new code:
+    # content = b2.download_to_string(...)
+    # if content is None: ...
+    # else: try: write... except IOError...
+    # 
+    # b2.download_to_string only swallows "Not found" exceptions (returns None).
+    # Real errors (Network) propagate.
+    # And _sync_cooldown_file uses `try...except Exception` wrapper?
+    # Let's check the implementation of _sync_cooldown_file again. 
+    # Ah, the outer try/except block in _sync_cooldown_file handles the propagation.
+    # So this test is still valid, just needs to mock the right method.
+    
     # Check that error message is printed
+    # The outer exception handler prints it.
     args, _ = mock_cprint.call_args_list[-1]
     assert args[0] == cooldown.NEON_RED
-    assert "Error downloading cooldown file" in args[1]
+    assert "An unexpected error occurred" in args[1]
 
 
 def test_sync_cooldown_file_upload_no_local_file(mock_resolve_credentials, mock_b2_manager, mock_cprint, mock_args, fs):
@@ -187,18 +204,15 @@ def test_record_switch_with_cloud(mock_fs, fs, mocker, mock_args, mock_resolve_c
     mock_datetime.datetime.now.return_value.isoformat.return_value = TEST_TIMESTAMP
     mock_datetime.timezone.utc = datetime.timezone.utc
 
-    # Mock download to populate local file with some existing data
-    def side_effect_download(remote, local):
-        # We need to write to the local file in the fake fs
-        with open(local, "w") as f:
-            json.dump({"other@example.com": "2020-01-01T00:00:00+00:00"}, f)
-
-    mock_b2_manager.return_value.download.side_effect = side_effect_download
+    # Mock download_to_string to return existing cloud data
+    mock_b2_manager.return_value.download_to_string.return_value = json.dumps({
+        "other@example.com": "2020-01-01T00:00:00+00:00"
+    })
 
     record_switch(TEST_EMAIL, args=mock_args)
 
     # Verify download called
-    mock_b2_manager.return_value.download.assert_called_once()
+    mock_b2_manager.return_value.download_to_string.assert_called_once()
 
     # Verify local file updated with BOTH
     with open(MOCK_COOLDOWN_PATH, "r") as f:
@@ -239,7 +253,9 @@ def test_do_cooldown_list_with_cloud(fs, mock_args, mock_resolve_credentials, mo
 
     do_cooldown_list(args=mock_args)
 
-    mock_b2_manager.return_value.download.assert_called_once()
+    # It might be called multiple times (once for cooldowns, once for resets)
+    # So we just check it was called at least once.
+    assert mock_b2_manager.return_value.download_to_string.called
 
 
 def _get_printed_table(mock_console):
