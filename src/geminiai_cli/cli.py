@@ -27,7 +27,7 @@ from .reset_helpers import (
     remove_entry_by_id,
 )
 from .config import NEON_YELLOW, NEON_CYAN, DEFAULT_BACKUP_DIR
-from .backup import main as backup_main
+from .backup import perform_backup
 from .restore import main as restore_main
 from .integrity import main as integrity_main
 from .list_backups import main as list_backups_main
@@ -276,20 +276,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "backup":
-        sys.argv = ["geminiai-backup"]
-        if args.src:
-            sys.argv.extend(["--src", args.src])
-        if args.archive_dir:
-            sys.argv.extend(["--archive-dir", args.archive_dir])
-        if args.dest_dir_parent:
-            sys.argv.extend(["--dest-dir-parent", args.dest_dir_parent])
-        if args.dry_run:
-            sys.argv.append("--dry-run")
-        if args.cloud: sys.argv.append("--cloud")
-        if args.bucket: sys.argv.extend(["--bucket", args.bucket])
-        if args.b2_id: sys.argv.extend(["--b2-id", args.b2_id])
-        if args.b2_key: sys.argv.extend(["--b2-key", args.b2_key])
-        backup_main()
+        perform_backup(args)
     elif args.command == "restore":
         sys.argv = ["geminiai-restore"]
         if args.from_dir:

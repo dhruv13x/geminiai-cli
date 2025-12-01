@@ -98,18 +98,11 @@ def atomic_symlink(target: str, link_name: str):
             except Exception:
                 pass
 
-def main():
-    p = argparse.ArgumentParser(description="Safe timestamped backup for ~/.gemini (name: YYYY-MM-DD_HHMMSS-email.gemini)")
-    p.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
-    p.add_argument("--archive-dir", default=DEFAULT_BACKUP_DIR, help="Directory to store tar.gz archives")
-    p.add_argument("--dest-dir-parent", default=DEFAULT_BACKUP_DIR, help="Parent directory where timestamped backups are stored")
-    p.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
-    p.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
-    p.add_argument("--bucket", help="B2 Bucket Name")
-    p.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
-    p.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
-    args = p.parse_args()
-
+def perform_backup(args: argparse.Namespace):
+    """
+    Main backup logic separated from argument parsing.
+    Accepts an argparse.Namespace or any object with the required attributes.
+    """
     src = os.path.abspath(os.path.expanduser(args.src))
     archive_dir = os.path.abspath(os.path.expanduser(args.archive_dir))
     dest_parent = os.path.abspath(os.path.expanduser(args.dest_dir_parent))
@@ -212,6 +205,20 @@ def main():
             lockfd.close()
         except Exception:
             pass
+
+# For backwards compatibility with CLI call via sys.modules or direct import
+def main():
+    p = argparse.ArgumentParser(description="Safe timestamped backup for ~/.gemini (name: YYYY-MM-DD_HHMMSS-email.gemini)")
+    p.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
+    p.add_argument("--archive-dir", default=DEFAULT_BACKUP_DIR, help="Directory to store tar.gz archives")
+    p.add_argument("--dest-dir-parent", default=DEFAULT_BACKUP_DIR, help="Parent directory where timestamped backups are stored")
+    p.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
+    p.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
+    p.add_argument("--bucket", help="B2 Bucket Name")
+    p.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
+    p.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
+    args = p.parse_args()
+    perform_backup(args)
 
 if __name__ == "__main__":
     main()

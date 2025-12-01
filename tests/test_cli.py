@@ -34,11 +34,11 @@ def test_print_rich_help():
         print_rich_help()
         mock_exit.assert_called_with(0)
 
-@patch("geminiai_cli.cli.backup_main")
-def test_main_backup(mock_backup_main):
+@patch("geminiai_cli.cli.perform_backup")
+def test_main_backup(mock_perform_backup):
     with patch("sys.argv", ["geminiai", "backup"]):
         main()
-        mock_backup_main.assert_called_once()
+        mock_perform_backup.assert_called_once()
 
 @patch("geminiai_cli.cli.restore_main")
 def test_main_restore(mock_restore_main):
@@ -181,25 +181,25 @@ def test_main_resets_no_args(mock_print_help):
         mock_print_help.assert_called()
 
 # Test arg parsing branches for backup (cloud options)
-@patch("geminiai_cli.cli.backup_main")
+@patch("geminiai_cli.cli.perform_backup")
 def test_main_backup_cloud(mock_backup):
     with patch("sys.argv", ["geminiai", "backup", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
         main()
         mock_backup.assert_called()
 
-@patch("geminiai_cli.cli.backup_main")
+@patch("geminiai_cli.cli.perform_backup")
 def test_main_backup_empty_src(mock_backup):
     with patch("sys.argv", ["geminiai", "backup", "--src", ""]):
         main()
         mock_backup.assert_called()
 
-@patch("geminiai_cli.cli.backup_main")
+@patch("geminiai_cli.cli.perform_backup")
 def test_main_backup_dry_run(mock_backup):
     with patch("sys.argv", ["geminiai", "backup", "--dry-run"]):
         main()
         mock_backup.assert_called()
 
-@patch("geminiai_cli.cli.backup_main")
+@patch("geminiai_cli.cli.perform_backup")
 def test_main_backup_no_archive_dir(mock_backup):
     # Default is set, so we need to explicitly set it to empty string to trigger false branch if argparse allows it
     # Actually argparse default fills it.
@@ -208,7 +208,7 @@ def test_main_backup_no_archive_dir(mock_backup):
         main()
         mock_backup.assert_called()
 
-@patch("geminiai_cli.cli.backup_main")
+@patch("geminiai_cli.cli.perform_backup")
 def test_main_backup_no_dest_parent(mock_backup):
     with patch("sys.argv", ["geminiai", "backup", "--dest-dir-parent", ""]):
         main()
