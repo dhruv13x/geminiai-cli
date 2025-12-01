@@ -2,7 +2,8 @@
 
 import pytest
 from unittest.mock import patch, MagicMock
-from geminiai_cli.cli import main, print_rich_help, RichHelpParser
+from geminiai_cli.cli import main
+from geminiai_cli.args import print_rich_help, RichHelpParser
 
 @patch("geminiai_cli.cli.do_login")
 def test_main_login(mock_do_login):
@@ -174,7 +175,7 @@ def test_main_help_arg(mock_help):
             main()
         mock_help.assert_called()
 
-@patch("geminiai_cli.cli.RichHelpParser.print_help")
+@patch("geminiai_cli.args.RichHelpParser.print_help")
 def test_main_resets_no_args(mock_print_help):
     with patch("sys.argv", ["geminiai", "resets"]):
         main()
