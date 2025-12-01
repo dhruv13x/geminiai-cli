@@ -68,7 +68,7 @@ def test_sync_cooldown_file_no_creds(mock_resolve_credentials, mock_cprint, mock
     mock_cprint.assert_any_call(cooldown.NEON_YELLOW, "Warning: Cloud credentials not fully configured. Skipping cloud sync.")
 
 
-def test_sync_cooldown_file_download_success(mock_resolve_credentials, mock_b2_manager, mock_cprint, mock_args):
+def test_sync_cooldown_file_download_success(mock_resolve_credentials, mock_b2_manager, mock_cprint, mock_args, fs):
     mock_resolve_credentials.return_value = ("key", "app", "bucket")
     b2_instance = mock_b2_manager.return_value
     b2_instance.download_to_string.return_value = "{}"
