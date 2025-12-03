@@ -38,7 +38,7 @@ from .restore import perform_restore
 from .integrity import perform_integrity_check
 from .list_backups import perform_list_backups
 from .check_b2 import perform_check_b2
-from .sync import cloud_sync, local_sync
+from .sync import perform_sync
 from .chat import backup_chat_history, restore_chat_history, cleanup_chat_history, resume_chat
 from .project_config import load_project_config, normalize_config_keys
 
@@ -61,8 +61,7 @@ def print_rich_help():
         ("list-backups", "List available backups"),
         ("prune", "Prune old backups (local or cloud)"),
         ("check-b2", "Verify Backblaze B2 credentials"),
-        ("cloud-sync", "Sync local backups to Cloud"),
-        ("local-sync", "Sync Cloud backups to local"),
+        ("sync", "Sync backups with Cloud (push/pull)"),
         ("config", "Manage persistent configuration"),
         ("doctor", "Run system diagnostic check"),
         ("resets", "Manage Gemini free tier reset schedules"),
@@ -177,10 +176,10 @@ def main():
     # Backup command
     backup_parser = subparsers.add_parser("backup", help="Backup Gemini configuration and chats (local or Backblaze B2 cloud).")
     backup_parser.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
-    backup_parser.add_argument("--archive-dir", default=DEFAULT_BACKUP_DIR, help="Directory to store tar.gz archives")
+    backup_parser.add_argument("--archive-dir", default=DEFAULT_BACKUP_DIR, help="Directory to store tar.gz archives (default: ~/.geminiai-cli/backups)")
     backup_parser.add_argument("--dest-dir-parent", default=OLD_CONFIGS_DIR, help="Parent directory where timestamped directory backups are stored")
     backup_parser.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
-    backup_parser.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
+    backup_parser.add_argument("--cloud", action="store_true", help="Create local backup AND upload to Cloud (B2)")
     backup_parser.add_argument("--bucket", help="B2 Bucket Name")
     backup_parser.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
     backup_parser.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
@@ -189,7 +188,7 @@ def main():
     restore_parser = subparsers.add_parser("restore", help="Restore Gemini configuration from a backup (local or Backblaze B2 cloud).")
     restore_parser.add_argument("--from-dir", help="Directory backup to restore from (preferred)")
     restore_parser.add_argument("--from-archive", help="Tar.gz archive to restore from")
-    restore_parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for timestamped backups when no --from-dir (default: archives dir)")
+    restore_parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for backup archives (*.gemini.tar.gz) when no --from-dir (default: ~/.geminiai-cli/backups)")
     restore_parser.add_argument("--dest", default="~/.gemini", help="Destination (default ~/.gemini)")
     restore_parser.add_argument("--force", action="store_true", help="Allow destructive replace without keeping .bak")
     restore_parser.add_argument("--dry-run", action="store_true", help="Do a dry run without destructive actions")
@@ -215,7 +214,7 @@ def main():
 
     # List backups command
     list_backups_parser = subparsers.add_parser("list-backups", help="List available backups (local or Backblaze B2 cloud).")
-    list_backups_parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for backups (default ~/geminiai_backups)")
+    list_backups_parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for backup archives (default: ~/.geminiai-cli/backups)")
     list_backups_parser.add_argument("--cloud", action="store_true", help="List backups from Cloud (B2)")
     list_backups_parser.add_argument("--bucket", help="B2 Bucket Name")
     list_backups_parser.add_argument("--b2-id", help="B2 Key ID")
@@ -227,19 +226,23 @@ def main():
     check_b2_parser.add_argument("--b2-key", help="B2 App Key (or set env GEMINI_B2_APP_KEY)")
     check_b2_parser.add_argument("--bucket", help="B2 Bucket Name (or set env GEMINI_B2_BUCKET)")
 
-    # Cloud Sync command
-    cloud_sync_parser = subparsers.add_parser("cloud-sync", help="Sync missing local backups to Cloud (B2).")
-    cloud_sync_parser.add_argument("--backup-dir", default=DEFAULT_BACKUP_DIR, help="Local backup directory (default ~/geminiai_backups)")
-    cloud_sync_parser.add_argument("--bucket", help="B2 Bucket Name")
-    cloud_sync_parser.add_argument("--b2-id", help="B2 Key ID")
-    cloud_sync_parser.add_argument("--b2-key", help="B2 App Key")
+    # Sync command (Unified Push/Pull)
+    sync_parser = subparsers.add_parser("sync", help="Sync backups with Cloud (B2).")
+    sync_subparsers = sync_parser.add_subparsers(dest="sync_direction", help="Sync direction")
+    
+    # Sync Push (Local -> Cloud)
+    push_parser = sync_subparsers.add_parser("push", help="Upload missing local backups to Cloud.")
+    push_parser.add_argument("--backup-dir", default=DEFAULT_BACKUP_DIR, help="Local backup directory (default: ~/.geminiai-cli/backups)")
+    push_parser.add_argument("--bucket", help="B2 Bucket Name")
+    push_parser.add_argument("--b2-id", help="B2 Key ID")
+    push_parser.add_argument("--b2-key", help="B2 App Key")
 
-    # Local Sync command
-    local_sync_parser = subparsers.add_parser("local-sync", help="Sync missing Cloud (B2) backups to local storage.")
-    local_sync_parser.add_argument("--backup-dir", default=DEFAULT_BACKUP_DIR, help="Local backup directory (default ~/geminiai_backups)")
-    local_sync_parser.add_argument("--bucket", help="B2 Bucket Name")
-    local_sync_parser.add_argument("--b2-id", help="B2 Key ID")
-    local_sync_parser.add_argument("--b2-key", help="B2 App Key")
+    # Sync Pull (Cloud -> Local)
+    pull_parser = sync_subparsers.add_parser("pull", help="Download missing Cloud backups to local.")
+    pull_parser.add_argument("--backup-dir", default=DEFAULT_BACKUP_DIR, help="Local backup directory (default: ~/.geminiai-cli/backups)")
+    pull_parser.add_argument("--bucket", help="B2 Bucket Name")
+    pull_parser.add_argument("--b2-id", help="B2 Key ID")
+    pull_parser.add_argument("--b2-key", help="B2 App Key")
 
     # Config command
     config_parser = subparsers.add_parser("config", help="Manage persistent configuration.")
@@ -261,8 +264,8 @@ def main():
     # Prune command
     prune_parser = subparsers.add_parser("prune", help="Prune old backups.")
     prune_parser.add_argument("--keep", type=int, default=5, help="Number of recent backups to keep (default: 5)")
-    prune_parser.add_argument("--backup-dir", default=DEFAULT_BACKUP_DIR, help="Local backup directory")
-    prune_parser.add_argument("--cloud", action="store_true", help="Also prune cloud backups")
+    prune_parser.add_argument("--backup-dir", default=DEFAULT_BACKUP_DIR, help="Local backup directory (default: ~/.geminiai-cli/backups)")
+    prune_parser.add_argument("--cloud", action="store_true", help="Prune both local AND cloud backups")
     prune_parser.add_argument("--cloud-only", action="store_true", help="Only prune cloud backups")
     prune_parser.add_argument("--dry-run", action="store_true", help="Show what would be deleted without doing it")
     prune_parser.add_argument("--bucket", help="B2 Bucket Name")
@@ -305,10 +308,12 @@ def main():
         perform_list_backups(args)
     elif args.command == "check-b2":
         perform_check_b2(args)
-    elif args.command == "cloud-sync":
-        cloud_sync(args)
-    elif args.command == "local-sync":
-        local_sync(args)
+    elif args.command == "sync":
+        if args.sync_direction:
+            perform_sync(args.sync_direction, args)
+        else:
+            # No subcommand provided
+            parser.parse_args(["sync", "--help"])
     elif args.command == "config":
         do_config(args)
     elif args.command == "doctor":

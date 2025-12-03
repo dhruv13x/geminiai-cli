@@ -44,7 +44,7 @@ def test_banner(capsys):
     banner()
     captured = capsys.readouterr()
     # The banner output in the failure message was:
-    # ╭───────────────────────────────────╮\n│ 🚀  ALICE (GEMINI AUTOMATION)  🚀 │\n╰───────────────────────────────────╯\n\n
+    # ╭───────────────────────────────────╮\n│ 🚀  GA (GEMINI AUTOMATION)  🚀 │\n╰───────────────────────────────────╯\n\n
     # The assertion was checking for "GEMINI AUTOMATION SCRIPT" which is not there.
-    # The banner text is "ALICE (GEMINI AUTOMATION)"
-    assert "ALICE (GEMINI AUTOMATION)" in captured.out
+    # The banner text is "GA (GEMINI AUTOMATION)"
+    assert "GA (GEMINI AUTOMATION)" in captured.out

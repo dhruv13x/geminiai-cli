@@ -9,7 +9,7 @@
     "disableAutoUpdate": true,
     "enablePromptCompletion": true,
     "maxSessionTurns": -1,
-    "chat_history_backup_path": "~/gemini_chat_backups"
+    "chat_history_backup_path": "~/.geminiai-cli/chat_backups"
   },
   "ui": {
     "showStatusInTitle": true,

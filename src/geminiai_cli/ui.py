@@ -47,9 +47,9 @@ def cprint(color, text):
 
 def banner():
     """
-    Displays the ALICE banner using a Rich Panel.
+    Displays the GA banner using a Rich Panel.
     """
-    title = "[bold cyan]🚀  ALICE (GEMINI AUTOMATION)  🚀[/]"
+    title = "[bold cyan]🚀  GA (GEMINI AUTOMATION)  🚀[/]"
     panel = Panel(Align.center(title), style="bold magenta", expand=False)
     console.print(panel)
     console.print("") # Newline
