@@ -72,7 +72,10 @@ from rich.panel import Panel
 from rich.align import Align
 
 
-COOLDOWN_FILE_PATH = os.path.join(os.path.expanduser("~"), ".gemini-cooldown.json")
+from .config import NEON_CYAN, NEON_YELLOW, NEON_GREEN, NEON_RED, RESET, GEMINIAI_DATA_DIR
+
+# File to store cooldown data
+COOLDOWN_FILE_PATH = os.path.join(GEMINIAI_DATA_DIR, "cooldown.json")
 CLOUD_COOLDOWN_FILENAME = "gemini-cooldown.json"
 COOLDOWN_HOURS = 24
 

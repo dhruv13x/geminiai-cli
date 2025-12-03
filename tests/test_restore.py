@@ -56,6 +56,7 @@ def test_extract_archive(mock_makedirs, mock_run):
     restore.extract_archive("archive", "dest")
     mock_run.assert_called()
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.run")
 @patch("os.path.exists", return_value=True)
@@ -63,12 +64,13 @@ def test_extract_archive(mock_makedirs, mock_run):
 @patch("os.replace")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_from_dir(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_lock):
+def test_main_from_dir(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_lock, mock_move):
     with patch("sys.argv", ["restore.py", "--from-dir", "/tmp/backup"]):
         mock_run.return_value.returncode = 0
         restore.main()
         # Verification passes
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.run")
 @patch("os.path.exists", return_value=True)
@@ -76,11 +78,12 @@ def test_main_from_dir(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, m
 @patch("os.replace")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_from_archive(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_lock):
+def test_main_from_archive(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_lock, mock_move):
     with patch("sys.argv", ["restore.py", "--from-archive", "/tmp/backup.tar.gz"]):
         mock_run.return_value.returncode = 0
         restore.main()
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.find_oldest_archive_backup", return_value="/tmp/oldest.tar.gz")
 @patch("geminiai_cli.restore.run")
@@ -89,12 +92,13 @@ def test_main_from_archive(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedir
 @patch("os.replace")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_auto_oldest(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_find_oldest, mock_lock):
+def test_main_auto_oldest(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_find_oldest, mock_lock, mock_move):
     with patch("sys.argv", ["restore.py"]):
         mock_run.return_value.returncode = 0
         restore.main()
         mock_find_oldest.assert_called()
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.B2Manager")
 @patch("geminiai_cli.restore.run")
@@ -104,7 +108,7 @@ def test_main_auto_oldest(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
 @patch("geminiai_cli.cooldown._sync_cooldown_file")
-def test_main_cloud(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock):
+def test_main_cloud(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock, mock_move):
     with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
         mock_file = MagicMock()
         mock_file.file_name = "2025-10-22_042211-test.gemini.tar.gz"
@@ -132,13 +136,14 @@ def test_main_verification_fail(mock_mkdtemp, mock_rmtree, mock_exists, mock_run
             restore.main()
         assert e.value.code == 3
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.run")
 @patch("os.path.exists", return_value=True)
 @patch("os.replace")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_post_verification_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
+def test_main_post_verification_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock, mock_move):
     with patch("sys.argv", ["restore.py", "--from-archive", "archive.tar.gz"]):
         # Mock diff run fail (post verify)
         mock_run.side_effect = [
@@ -192,9 +197,9 @@ def test_main_from_dir_not_found(mock_exists, mock_lock):
 @patch("os.path.exists")
 def test_main_from_archive_search_dir(mock_exists, mock_lock):
     def side_effect(path):
-        if "archive.tar.gz" in path and "geminiai_backups" not in path:
+        if "archive.tar.gz" in path and "geminiai/backups" not in path:
             return False # User path not found
-        if "archive.tar.gz" in path and "geminiai_backups" in path:
+        if "archive.tar.gz" in path and "geminiai/backups" in path:
             return True # Search dir path found
         return True # Default for others (locale etc)
     mock_exists.side_effect = side_effect
@@ -223,13 +228,14 @@ def test_main_auto_no_backups(mock_exists, mock_find, mock_lock):
         with pytest.raises(SystemExit):
             restore.main()
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.run")
 @patch("os.path.exists", return_value=True)
 @patch("os.replace")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_rollback_success(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
+def test_main_rollback_success(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock, mock_move):
      with patch("sys.argv", ["restore.py", "--from-archive", "archive.tar.gz"]):
         # Mock diff run fail (post verify)
         mock_run.side_effect = [
@@ -245,13 +251,14 @@ def test_main_rollback_success(mock_mkdtemp, mock_rmtree, mock_replace, mock_exi
         # We can't easily verify call count on os.replace here without more mocking,
         # but we cover the code path.
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.run")
 @patch("os.path.exists", return_value=True)
 @patch("os.replace", side_effect=[None, None, Exception("Rollback fail")])
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_rollback_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
+def test_main_rollback_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock, mock_move):
      with patch("sys.argv", ["restore.py", "--from-archive", "archive.tar.gz"]):
         # Mock diff run fail (post verify)
         mock_run.side_effect = [
@@ -264,6 +271,7 @@ def test_main_rollback_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists
             restore.main()
         assert e.value.code == 4
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.B2Manager")
 @patch("geminiai_cli.restore.run")
@@ -273,7 +281,7 @@ def test_main_rollback_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
 @patch("geminiai_cli.cooldown._sync_cooldown_file")
-def test_main_cloud_specific_archive(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock):
+def test_main_cloud_specific_archive(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock, mock_move):
     specific_archive = "2025-11-21_231311-specific@test.gemini.tar.gz"
     with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k", "--from-archive", specific_archive]):
         mock_file_specific = MagicMock()
@@ -304,12 +312,13 @@ def test_main_lock_exception(mock_lock):
              with patch("os.path.exists", return_value=True):
                  with patch("os.makedirs"):
                      with patch("os.replace"):
-                         with patch("shutil.rmtree"):
-                             with patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp"):
-                                 with patch("sys.argv", ["restore.py"]):
-                                     with patch("geminiai_cli.restore.fcntl.flock") as mock_flock:
-                                         mock_flock.side_effect = [None, Exception("Unlock fail")]
-                                         restore.main()
+                         with patch("shutil.move"):
+                             with patch("shutil.rmtree"):
+                                 with patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp"):
+                                     with patch("sys.argv", ["restore.py"]):
+                                         with patch("geminiai_cli.restore.fcntl.flock") as mock_flock:
+                                             mock_flock.side_effect = [None, Exception("Unlock fail")]
+                                             restore.main()
 
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.run")
@@ -320,19 +329,20 @@ def test_main_lock_exception(mock_lock):
 @patch("shutil.move")
 def test_main_os_replace_fail_fallback(mock_move, mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
     # Test lines 272-273: shutil.move fallback
-    mock_replace.side_effect = [Exception("Cross-device link"), None] # First replace fails (backup move), second succeeds (install)
+    mock_replace.side_effect = [OSError(18, "Cross-device link"), None] # First replace fails (backup move), second succeeds (install)
     mock_run.return_value.returncode = 0
     with patch("sys.argv", ["restore.py", "--from-archive", "archive.tar.gz"]):
         restore.main()
         mock_move.assert_called()
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.run")
 @patch("os.path.exists", return_value=True)
 @patch("os.replace")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-def test_main_temp_extraction_rmtree_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
+def test_main_temp_extraction_rmtree_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock, mock_move):
     # Test lines 313-314: rmtree exception ignored
 
     def side_effect(path, ignore_errors=False):
@@ -369,6 +379,7 @@ def test_main_dest_not_exists(mock_mkdtemp, mock_rmtree, mock_replace, mock_exis
         # "Preparing to move existing" should NOT be printed?
         # Hard to assert print, but coverage should increase.
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.run")
 @patch("os.path.exists", return_value=True)
@@ -376,7 +387,7 @@ def test_main_dest_not_exists(mock_mkdtemp, mock_rmtree, mock_replace, mock_exis
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
 @patch("geminiai_cli.cooldown._sync_cooldown_file")
-def test_main_tmp_dest_not_exists(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
+def test_main_tmp_dest_not_exists(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock, mock_move):
     # Test lines 237->239: if os.path.exists(tmp_dest)
 
     def exists_side_effect(path):
@@ -421,6 +432,7 @@ def test_main_cloud_specific_archive_not_found(mock_b2, mock_lock):
             restore.main()
         assert e.value.code == 1
 
+@patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.run")
 @patch("os.path.exists", return_value=True)
@@ -429,7 +441,7 @@ def test_main_cloud_specific_archive_not_found(mock_b2, mock_lock):
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
 @patch("os.remove")
 @patch("geminiai_cli.cooldown._sync_cooldown_file")
-def test_main_cleanup_temp_download(mock_sync, mock_remove, mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock):
+def test_main_cleanup_temp_download(mock_sync, mock_remove, mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock_run, mock_lock, mock_move):
     # Test lines 316-320
     # Simulate cloud download flow partially or just force temp_download_path via some way?
     # It's a local variable in main. We need to go through the cloud path.
@@ -475,7 +487,7 @@ from geminiai_cli.recommend import Recommendation, AccountStatus
 def mock_restore_env(fs):
     """Setup a mock environment for restore tests."""
     fs.create_dir(os.path.expanduser("~/.gemini"))
-    fs.create_dir(os.path.expanduser("~/geminiai_backups"))
+    fs.create_dir(os.path.expanduser("~/geminiai/backups"))
     return fs
 
 def test_restore_auto_local_no_rec(mock_restore_env, capsys):
@@ -484,7 +496,7 @@ def test_restore_auto_local_no_rec(mock_restore_env, capsys):
         auto=True,
         cloud=False,
         dest="~/.gemini",
-        search_dir="~/geminiai_backups",
+        search_dir="~/geminiai/backups",
         from_dir=None,
         from_archive=None,
         dry_run=False,
@@ -504,7 +516,7 @@ def test_restore_auto_local_success(mock_restore_env, capsys):
         auto=True,
         cloud=False,
         dest="~/.gemini",
-        search_dir="~/geminiai_backups",
+        search_dir="~/geminiai/backups",
         from_dir=None,
         from_archive=None,
         dry_run=False,
@@ -539,7 +551,7 @@ def test_restore_auto_local_not_found(mock_restore_env, capsys):
         auto=True,
         cloud=False,
         dest="~/.gemini",
-        search_dir="~/geminiai_backups",
+        search_dir="~/geminiai/backups",
         from_dir=None,
         from_archive=None,
         dry_run=False,
@@ -561,7 +573,7 @@ def test_restore_cloud_auto_success(mock_restore_env, capsys):
         auto=True,
         cloud=True,
         dest="~/.gemini",
-        search_dir="~/geminiai_backups",
+        search_dir="~/geminiai/backups",
         from_dir=None,
         from_archive=None,
         dry_run=False,
@@ -601,7 +613,7 @@ def test_restore_cloud_auto_not_found(mock_restore_env, capsys):
         auto=True,
         cloud=True,
         dest="~/.gemini",
-        search_dir="~/geminiai_backups",
+        search_dir="~/geminiai/backups",
         from_dir=None,
         from_archive=None,
         dry_run=False,
@@ -628,7 +640,7 @@ def test_restore_from_archive_search_fallback(mock_restore_env, capsys):
     """Test fallback to search dir when --from-archive path is just a filename."""
     args = argparse.Namespace(
         from_archive="mybackup.tar.gz",
-        search_dir="~/geminiai_backups",
+        search_dir="~/geminiai/backups",
         dest="~/.gemini",
         cloud=False,
         auto=False,
@@ -657,7 +669,7 @@ def test_restore_from_archive_not_found(mock_restore_env, capsys):
     """Test --from-archive fails if file not found anywhere."""
     args = argparse.Namespace(
         from_archive="nonexistent.tar.gz",
-        search_dir="~/geminiai_backups",
+        search_dir="~/geminiai/backups",
         dest="~/.gemini",
         cloud=False,
         auto=False,
@@ -681,7 +693,7 @@ def test_restore_cloud_specific_success(mock_restore_env, capsys):
         from_archive=valid_name,
         auto=False,
         dest="~/.gemini",
-        search_dir="~/geminiai_backups",
+        search_dir="~/geminiai/backups",
         from_dir=None,
         dry_run=False,
         force=False,
@@ -717,7 +729,7 @@ def test_restore_cloud_specific_fail(mock_restore_env, capsys):
         from_archive="missing.gemini.tar.gz",
         auto=False,
         dest="~/.gemini",
-        search_dir="~/geminiai_backups",
+        search_dir="~/geminiai/backups",
         from_dir=None,
         dry_run=False,
         force=False,
@@ -746,7 +758,7 @@ def test_restore_auto_cooldown_outgoing(mock_restore_env, capsys):
         cloud=False,
         auto=False,
         dest="~/.gemini",
-        search_dir="~/geminiai_backups",
+        search_dir="~/geminiai/backups",
         from_dir=None,
         from_archive=None,
         dry_run=False,

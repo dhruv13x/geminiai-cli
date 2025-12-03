@@ -4,9 +4,9 @@ import subprocess
 from pathlib import Path
 
 from .ui import cprint
-from .config import NEON_GREEN, NEON_RED, NEON_YELLOW, NEON_CYAN, RESET
+from .config import NEON_GREEN, NEON_RED, NEON_YELLOW, NEON_CYAN, RESET, GEMINIAI_WORK_DIR
 
-CHAT_HISTORY_BACKUP_PATH = Path(os.path.expanduser("~/.gemini/chat_history_backups"))
+CHAT_HISTORY_BACKUP_PATH = Path(os.path.join(GEMINIAI_WORK_DIR, "chats"))
 
 def backup_chat_history(backup_path: Path, gemini_home_dir: Path):
     """Backup the chat history from the current user's Gemini directory."""

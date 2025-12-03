@@ -29,9 +29,10 @@ import uuid
 import subprocess
 
 from .ui import banner, cprint
-from .config import NEON_RED, NEON_GREEN, NEON_YELLOW, NEON_CYAN, NEON_MAGENTA
+from .config import NEON_CYAN, NEON_YELLOW, NEON_GREEN, NEON_RED, RESET, GEMINIAI_DATA_DIR
 
-STORE_FILE = os.path.expanduser("~/.gemini_resets.json")
+# File to store resets
+STORE_FILE = os.path.join(GEMINIAI_DATA_DIR, "resets.json")
 # Keep ISO timestamps in UTC for exact comparisons
 
 # -------------------------

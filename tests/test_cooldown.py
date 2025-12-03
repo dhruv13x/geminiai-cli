@@ -19,7 +19,7 @@ from rich.table import Table
 TEST_EMAIL = "test@example.com"
 TEST_TIMESTAMP = "2023-10-27T10:00:00+00:00"
 MOCK_HOME = "/home/testuser"
-MOCK_COOLDOWN_PATH = os.path.join(MOCK_HOME, ".gemini-cooldown.json")
+MOCK_COOLDOWN_PATH = os.path.join(MOCK_HOME, "geminiai", "data", "cooldown.json")
 
 
 @pytest.fixture
@@ -53,6 +53,7 @@ def mock_fs(fs):
     Using pyfakefs to mock the file system.
     """
     fs.create_dir(MOCK_HOME)
+    fs.create_dir(os.path.dirname(MOCK_COOLDOWN_PATH))
     return fs
 
 
@@ -388,7 +389,13 @@ def test_do_remove_account_no_credentials(fs, capsys):
     fs.create_dir(os.path.expanduser("~"))
 
     cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
-    resets_path = os.path.join(os.path.expanduser("~"), ".gemini-resets.json")
+    resets_path = os.path.join(os.path.expanduser("~"), "geminiai", "data", "resets.json")
+
+    # Ensure parent directories exist
+    if not os.path.exists(os.path.dirname(cooldown_path)):
+        fs.create_dir(os.path.dirname(cooldown_path))
+    if not os.path.exists(os.path.dirname(resets_path)):
+        fs.create_dir(os.path.dirname(resets_path))
 
     fs.create_file(cooldown_path, contents=json.dumps({"test@example.com": "2023-10-27T10:00:00+00:00"}))
     fs.create_file(resets_path, contents=json.dumps([{"email": "test@example.com", "id": "123"}]))

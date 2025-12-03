@@ -30,7 +30,7 @@ import sys
 import tempfile
 import time
 from typing import Optional, Tuple
-from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR
+from .config import DEFAULT_BACKUP_DIR, NEON_GREEN, NEON_RED, NEON_YELLOW, NEON_CYAN, RESET, DEFAULT_GEMINI_HOME, TIMESTAMPED_DIR_REGEX, GEMINIAI_ARCHIVE_DIR
 from .b2 import B2Manager
 from .settings import get_setting
 from .credentials import resolve_credentials
@@ -346,28 +346,32 @@ def perform_restore(args: argparse.Namespace):
             else:
                 print("DRY RUN: would run diff -r ...")
 
-            # Prepare swap: move existing dest to .bak-<ts> unless --force
+            # Prepare swap: move existing dest to archive unless --force
             bakname = None
-            if os.path.exists(dest):
-                bakname = f"{dest}.bak-{ts_now}"
-                print(f"Preparing to move existing {dest} -> {bakname}")
-                if not getattr(args, 'dry_run', False):
-                    if getattr(args, 'force', False):
-                        print("--force: removing existing dest")
-                        shutil.rmtree(dest)
-                    else:
-                        # atomic rename (replace if necessary fallback)
-                        try:
-                            os.replace(dest, bakname)
-                        except Exception:
-                            shutil.move(dest, bakname)
+            if os.path.exists(dest) and not args.force:
+                bak_filename = f".gemini.bak-{ts_now}"
+                bakname = os.path.join(GEMINIAI_ARCHIVE_DIR, bak_filename)
+                
+                if args.dry_run:
+                    cprint(NEON_YELLOW, f"[DRY-RUN] Would move existing {dest} to {bakname}")
                 else:
-                    print("DRY RUN: would move existing dest to bak or remove with --force")
+                    cprint(NEON_YELLOW, f"Backing up existing configuration to {bakname}...")
+                    # If destination archive exists (highly unlikely with timestamp), remove it first or it will fail/nest
+                    if os.path.exists(bakname):
+                         shutil.rmtree(bakname)
+                    shutil.move(dest, bakname)
 
             # Install new .gemini (atomic replace)
             print(f"Installing new .gemini from {tmp_dest} -> {dest}")
             if not getattr(args, 'dry_run', False):
-                os.replace(tmp_dest, dest)
+                try:
+                    os.replace(tmp_dest, dest)
+                except OSError as e:
+                     # Fallback for cross-device link if using tmp in different mount
+                     if e.errno == 18: # EXDEV
+                         shutil.move(tmp_dest, dest)
+                     else:
+                         raise e
             else:
                 print("DRY RUN: would os.replace(tmp_dest, dest)")
 
