@@ -104,17 +104,21 @@ def test_main_add_resets(mock_add):
 
 # New tests for additional coverage
 
-@patch("geminiai_cli.cli.cloud_sync")
-def test_main_cloud_sync(mock_cloud_sync):
-    with patch("sys.argv", ["geminiai", "cloud-sync"]):
+@patch("geminiai_cli.cli.perform_sync")
+def test_main_cloud_sync(mock_perform_sync):
+    with patch("sys.argv", ["geminiai", "sync", "push"]):
         main()
-        mock_cloud_sync.assert_called_once()
+        mock_perform_sync.assert_called()
+        args, _ = mock_perform_sync.call_args
+        assert args[0] == "push"
 
-@patch("geminiai_cli.cli.local_sync")
-def test_main_local_sync(mock_local_sync):
-    with patch("sys.argv", ["geminiai", "local-sync"]):
+@patch("geminiai_cli.cli.perform_sync")
+def test_main_local_sync(mock_perform_sync):
+    with patch("sys.argv", ["geminiai", "sync", "pull"]):
         main()
-        mock_local_sync.assert_called_once()
+        mock_perform_sync.assert_called()
+        args, _ = mock_perform_sync.call_args
+        assert args[0] == "pull"
 
 @patch("geminiai_cli.cli.do_config")
 def test_main_config(mock_do_config):
