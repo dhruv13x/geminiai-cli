@@ -460,3 +460,316 @@ def test_main_verification_fail_with_stdout(mock_mkdtemp, mock_rmtree, mock_exis
         with pytest.raises(SystemExit) as e:
             restore.main()
         assert e.value.code == 3
+
+import pytest
+import os
+import json
+import time
+import datetime
+import argparse
+from unittest.mock import MagicMock, patch
+from geminiai_cli.restore import perform_restore
+from geminiai_cli.recommend import Recommendation, AccountStatus
+
+@pytest.fixture
+def mock_restore_env(fs):
+    """Setup a mock environment for restore tests."""
+    fs.create_dir(os.path.expanduser("~/.gemini"))
+    fs.create_dir(os.path.expanduser("~/geminiai_backups"))
+    return fs
+
+def test_restore_auto_local_no_rec(mock_restore_env, capsys):
+    """Test --auto local restore fails if no recommendation."""
+    args = argparse.Namespace(
+        auto=True,
+        cloud=False,
+        dest="~/.gemini",
+        search_dir="~/geminiai_backups",
+        from_dir=None,
+        from_archive=None,
+        dry_run=False,
+        force=False
+    )
+
+    with patch("geminiai_cli.restore.get_recommendation", return_value=None):
+        with pytest.raises(SystemExit):
+            perform_restore(args)
+
+    captured = capsys.readouterr()
+    assert "No 'Green' (Ready) accounts" in captured.out
+
+def test_restore_auto_local_success(mock_restore_env, capsys):
+    """Test --auto local restore with recommendation."""
+    args = argparse.Namespace(
+        auto=True,
+        cloud=False,
+        dest="~/.gemini",
+        search_dir="~/geminiai_backups",
+        from_dir=None,
+        from_archive=None,
+        dry_run=False,
+        force=False
+    )
+
+    rec = Recommendation(email="test@example.com", status=AccountStatus.READY, last_used=None, next_reset=None)
+
+    # Mock finding the backup
+    search_dir = os.path.expanduser(args.search_dir)
+    backup_file = os.path.join(search_dir, "2025-01-01_120000-test@example.com.gemini.tar.gz")
+    mock_restore_env.create_file(backup_file)
+
+    with patch("geminiai_cli.restore.get_recommendation", return_value=rec):
+        with patch("geminiai_cli.restore.acquire_lock"), \
+             patch("geminiai_cli.restore.extract_archive"), \
+             patch("geminiai_cli.restore.run") as mock_run, \
+             patch("geminiai_cli.restore.shutil.rmtree"), \
+             patch("os.replace"), \
+             patch("geminiai_cli.restore.get_active_session", return_value=None):
+
+            mock_run.return_value.returncode = 0
+            perform_restore(args)
+
+    captured = capsys.readouterr()
+    assert "Auto-switch recommendation: test@example.com" in captured.out
+    assert "Selected latest local backup" in captured.out
+
+def test_restore_auto_local_not_found(mock_restore_env, capsys):
+    """Test --auto local restore fails if backup missing."""
+    args = argparse.Namespace(
+        auto=True,
+        cloud=False,
+        dest="~/.gemini",
+        search_dir="~/geminiai_backups",
+        from_dir=None,
+        from_archive=None,
+        dry_run=False,
+        force=False
+    )
+
+    rec = Recommendation(email="test@example.com", status=AccountStatus.READY, last_used=None, next_reset=None)
+
+    with patch("geminiai_cli.restore.get_recommendation", return_value=rec):
+        with pytest.raises(SystemExit):
+            perform_restore(args)
+
+    captured = capsys.readouterr()
+    assert "No backups found locally" in captured.out
+
+def test_restore_cloud_auto_success(mock_restore_env, capsys):
+    """Test --auto --cloud restore success."""
+    args = argparse.Namespace(
+        auto=True,
+        cloud=True,
+        dest="~/.gemini",
+        search_dir="~/geminiai_backups",
+        from_dir=None,
+        from_archive=None,
+        dry_run=False,
+        force=False,
+        b2_id="id",
+        b2_key="key",
+        bucket="bucket"
+    )
+
+    rec = Recommendation(email="test@example.com", status=AccountStatus.READY, last_used=None, next_reset=None)
+
+    with patch("geminiai_cli.restore.resolve_credentials", return_value=("id", "key", "bucket")):
+        with patch("geminiai_cli.restore.B2Manager") as MockB2:
+            b2_instance = MockB2.return_value
+            file_version = MagicMock()
+            file_version.file_name = "2025-01-01_120000-test@example.com.gemini.tar.gz"
+            b2_instance.list_backups.return_value = [(file_version, None)]
+
+            with patch("geminiai_cli.restore.get_recommendation", return_value=rec):
+                 with patch("geminiai_cli.restore.acquire_lock"), \
+                     patch("geminiai_cli.restore.extract_archive"), \
+                     patch("geminiai_cli.restore.run") as mock_run, \
+                     patch("geminiai_cli.restore.shutil.rmtree"), \
+                     patch("os.replace"), \
+                     patch("geminiai_cli.restore.get_active_session", return_value=None):
+
+                     mock_run.return_value.returncode = 0
+                     perform_restore(args)
+
+    captured = capsys.readouterr()
+    assert "Auto-switch recommendation: test@example.com" in captured.out
+    assert "Selected latest cloud backup" in captured.out
+
+def test_restore_cloud_auto_not_found(mock_restore_env, capsys):
+    """Test --auto --cloud restore fails if no matching backup."""
+    args = argparse.Namespace(
+        auto=True,
+        cloud=True,
+        dest="~/.gemini",
+        search_dir="~/geminiai_backups",
+        from_dir=None,
+        from_archive=None,
+        dry_run=False,
+        force=False
+    )
+
+    rec = Recommendation(email="test@example.com", status=AccountStatus.READY, last_used=None, next_reset=None)
+
+    with patch("geminiai_cli.restore.resolve_credentials", return_value=("id", "key", "bucket")):
+        with patch("geminiai_cli.restore.B2Manager") as MockB2:
+            b2_instance = MockB2.return_value
+            file_version = MagicMock()
+            file_version.file_name = "2025-01-01_120000-other@example.com.gemini.tar.gz"
+            b2_instance.list_backups.return_value = [(file_version, None)]
+
+            with patch("geminiai_cli.restore.get_recommendation", return_value=rec):
+                with pytest.raises(SystemExit):
+                    perform_restore(args)
+
+    captured = capsys.readouterr()
+    assert "No backups found in cloud for recommended account" in captured.out
+
+def test_restore_from_archive_search_fallback(mock_restore_env, capsys):
+    """Test fallback to search dir when --from-archive path is just a filename."""
+    args = argparse.Namespace(
+        from_archive="mybackup.tar.gz",
+        search_dir="~/geminiai_backups",
+        dest="~/.gemini",
+        cloud=False,
+        auto=False,
+        from_dir=None,
+        dry_run=False,
+        force=False
+    )
+
+    search_dir = os.path.expanduser(args.search_dir)
+    mock_restore_env.create_file(os.path.join(search_dir, "mybackup.tar.gz"))
+
+    with patch("geminiai_cli.restore.acquire_lock"), \
+         patch("geminiai_cli.restore.extract_archive"), \
+         patch("geminiai_cli.restore.run") as mock_run, \
+         patch("geminiai_cli.restore.shutil.rmtree"), \
+         patch("os.replace"), \
+         patch("geminiai_cli.restore.get_active_session", return_value=None):
+
+         mock_run.return_value.returncode = 0
+         perform_restore(args)
+
+    captured = capsys.readouterr()
+    assert "Found archive in default backup directory" in captured.out
+
+def test_restore_from_archive_not_found(mock_restore_env, capsys):
+    """Test --from-archive fails if file not found anywhere."""
+    args = argparse.Namespace(
+        from_archive="nonexistent.tar.gz",
+        search_dir="~/geminiai_backups",
+        dest="~/.gemini",
+        cloud=False,
+        auto=False,
+        from_dir=None,
+        dry_run=False,
+        force=False
+    )
+
+    with pytest.raises(SystemExit):
+        perform_restore(args)
+
+    captured = capsys.readouterr()
+    assert "Specified --from-archive not found" in captured.out
+
+def test_restore_cloud_specific_success(mock_restore_env, capsys):
+    """Test --cloud --from-archive success."""
+    # Use a timestamped name so it's considered valid
+    valid_name = "2025-01-01_120000-specific.gemini.tar.gz"
+    args = argparse.Namespace(
+        cloud=True,
+        from_archive=valid_name,
+        auto=False,
+        dest="~/.gemini",
+        search_dir="~/geminiai_backups",
+        from_dir=None,
+        dry_run=False,
+        force=False,
+        b2_id="id",
+        b2_key="key",
+        bucket="bucket"
+    )
+
+    with patch("geminiai_cli.restore.resolve_credentials", return_value=("id", "key", "bucket")):
+        with patch("geminiai_cli.restore.B2Manager") as MockB2:
+            b2_instance = MockB2.return_value
+            fv = MagicMock()
+            fv.file_name = valid_name
+            b2_instance.list_backups.return_value = [(fv, None)]
+
+            with patch("geminiai_cli.restore.acquire_lock"), \
+                 patch("geminiai_cli.restore.extract_archive"), \
+                 patch("geminiai_cli.restore.run") as mock_run, \
+                 patch("geminiai_cli.restore.shutil.rmtree"), \
+                 patch("os.replace"), \
+                 patch("geminiai_cli.restore.get_active_session", return_value=None):
+
+                 mock_run.return_value.returncode = 0
+                 perform_restore(args)
+
+    captured = capsys.readouterr()
+    assert "Selected specified cloud backup" in captured.out
+
+def test_restore_cloud_specific_fail(mock_restore_env, capsys):
+    """Test --cloud --from-archive not found."""
+    args = argparse.Namespace(
+        cloud=True,
+        from_archive="missing.gemini.tar.gz",
+        auto=False,
+        dest="~/.gemini",
+        search_dir="~/geminiai_backups",
+        from_dir=None,
+        dry_run=False,
+        force=False,
+        b2_id="id",
+        b2_key="key",
+        bucket="bucket"
+    )
+
+    with patch("geminiai_cli.restore.resolve_credentials", return_value=("id", "key", "bucket")):
+        with patch("geminiai_cli.restore.B2Manager") as MockB2:
+            b2_instance = MockB2.return_value
+            # Provide at least one valid file so we don't exit early
+            fv = MagicMock()
+            fv.file_name = "2025-01-01_120000-existing.gemini.tar.gz"
+            b2_instance.list_backups.return_value = [(fv, None)]
+
+            with pytest.raises(SystemExit):
+                 perform_restore(args)
+
+    captured = capsys.readouterr()
+    assert "Specified archive 'missing.gemini.tar.gz' not found" in captured.out
+
+def test_restore_auto_cooldown_outgoing(mock_restore_env, capsys):
+    """Test that cooldown is applied to outgoing account."""
+    args = argparse.Namespace(
+        cloud=False,
+        auto=False,
+        dest="~/.gemini",
+        search_dir="~/geminiai_backups",
+        from_dir=None,
+        from_archive=None,
+        dry_run=False,
+        force=False
+    )
+
+    search_dir = os.path.expanduser(args.search_dir)
+    mock_restore_env.create_file(os.path.join(search_dir, "2025-01-01_120000-new@test.com.gemini.tar.gz"))
+
+    with patch("geminiai_cli.restore.get_active_session", side_effect=["old@test.com", "new@test.com"]):
+         # Patch resolve_credentials to raise Exception (simulating missing creds) which perform_restore catches
+         with patch("geminiai_cli.restore.resolve_credentials", side_effect=ValueError("No Creds")):
+             with patch("geminiai_cli.restore.acquire_lock"), \
+                 patch("geminiai_cli.restore.extract_archive"), \
+                 patch("geminiai_cli.restore.run") as mock_run, \
+                 patch("geminiai_cli.restore.shutil.rmtree"), \
+                 patch("os.replace"), \
+                 patch("geminiai_cli.restore.add_24h_cooldown_for_email") as mock_cooldown, \
+                 patch("geminiai_cli.restore.record_switch") as mock_switch:
+
+                 mock_run.return_value.returncode = 0
+                 perform_restore(args)
+
+                 mock_cooldown.assert_called_with("old@test.com")
+                 mock_switch.assert_any_call("old@test.com", args=args)
+                 mock_switch.assert_any_call("new@test.com", args=args)

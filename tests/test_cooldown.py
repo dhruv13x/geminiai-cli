@@ -375,3 +375,157 @@ def test_do_cooldown_list_naive_timestamp_fix(fs, mock_console, mocker):
             found_email = True
 
     assert found_email
+import pytest
+import json
+import os
+import datetime
+from unittest.mock import MagicMock, patch
+from geminiai_cli.cooldown import do_remove_account, record_switch, get_cooldown_data, _sync_cooldown_file, do_cooldown_list, COOLDOWN_FILE_PATH
+from rich.console import Console
+
+def test_do_remove_account_no_credentials(fs, capsys):
+    """Test removing an account when no credentials are provided."""
+    fs.create_dir(os.path.expanduser("~"))
+
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    resets_path = os.path.join(os.path.expanduser("~"), ".gemini-resets.json")
+
+    fs.create_file(cooldown_path, contents=json.dumps({"test@example.com": "2023-10-27T10:00:00+00:00"}))
+    fs.create_file(resets_path, contents=json.dumps([{"email": "test@example.com", "id": "123"}]))
+
+    with patch("geminiai_cli.cooldown.remove_entry_by_id", return_value=True):
+        with patch("geminiai_cli.cooldown.resolve_credentials", side_effect=ValueError("No creds")):
+            do_remove_account("test@example.com", args=None)
+
+    captured = capsys.readouterr()
+    assert "Removed reset history" in captured.out
+    assert "Removed cooldown state" in captured.out
+    assert "Cloud sync complete" not in captured.out
+
+def test_do_remove_account_with_credentials_sync_fail(fs, capsys):
+    """Test removing an account with credentials but sync failing."""
+    fs.create_dir(os.path.expanduser("~"))
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    fs.create_file(cooldown_path, contents=json.dumps({"test@example.com": "2023-10-27T10:00:00+00:00"}))
+
+    args = MagicMock()
+    args.b2_key_id = "key"
+    args.b2_app_key = "app_key"
+    args.b2_bucket = "bucket"
+
+    with patch("geminiai_cli.cooldown.resolve_credentials", return_value=("key", "app_key", "bucket")):
+        with patch("geminiai_cli.cooldown._sync_cooldown_file", side_effect=Exception("Sync failed")):
+             do_remove_account("test@example.com", args=args)
+
+    captured = capsys.readouterr()
+    assert "Syncing removal to cloud..." in captured.out
+
+def test_record_switch_write_failure(fs, capsys):
+    """Test record_switch failing to write local file."""
+    fs.create_dir(os.path.expanduser("~"))
+
+    with patch("builtins.open", side_effect=IOError("Write denied")):
+        record_switch("test@example.com", args=None)
+
+    captured = capsys.readouterr()
+    assert "Error: Could not write to local cooldown file" in captured.out
+
+def test_sync_cooldown_file_upload_no_local(fs, capsys):
+    """Test upload sync when local file doesn't exist."""
+    args = MagicMock()
+
+    with patch("geminiai_cli.cooldown.resolve_credentials", return_value=("key", "app", "bucket")):
+         with patch("geminiai_cli.cooldown.B2Manager") as MockB2:
+            _sync_cooldown_file("upload", args)
+
+    captured = capsys.readouterr()
+    assert "Local cooldown file not found. Skipping upload." in captured.out
+
+def test_sync_cooldown_file_upload_exception(fs, capsys):
+    """Test upload sync raising exception."""
+    fs.create_dir(os.path.expanduser("~"))
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    fs.create_file(cooldown_path, contents="{}")
+
+    args = MagicMock()
+
+    with patch("geminiai_cli.cooldown.resolve_credentials", return_value=("key", "app", "bucket")):
+        with patch("geminiai_cli.cooldown.B2Manager") as MockB2:
+            instance = MockB2.return_value
+            instance.upload.side_effect = Exception("Upload failed")
+            _sync_cooldown_file("upload", args)
+
+    captured = capsys.readouterr()
+    assert "Error uploading cooldown file: Upload failed" in captured.out
+
+def test_get_cooldown_data_json_error(fs):
+    """Test get_cooldown_data with corrupted JSON."""
+    fs.create_dir(os.path.expanduser("~"))
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    fs.create_file(cooldown_path, contents="{invalid_json")
+    data = get_cooldown_data()
+    assert data == {}
+
+def test_get_cooldown_data_not_dict(fs):
+    """Test get_cooldown_data with valid JSON but not a dict."""
+    fs.create_dir(os.path.expanduser("~"))
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    fs.create_file(cooldown_path, contents="[]")
+    data = get_cooldown_data()
+    assert data == {}
+
+def test_do_cooldown_list_empty(fs, capsys):
+    """Test do_cooldown_list with no data."""
+    fs.create_dir(os.path.expanduser("~"))
+    with patch("geminiai_cli.cooldown.get_all_resets", return_value=[]):
+        do_cooldown_list(args=None)
+
+    captured = capsys.readouterr()
+    assert "No account data found" in captured.out
+
+def test_do_cooldown_list_with_data(fs, capsys):
+    """Test do_cooldown_list with various account states."""
+    fs.create_dir(os.path.expanduser("~"))
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    recent = (now - datetime.timedelta(hours=1)).isoformat()
+    old = (now - datetime.timedelta(hours=25)).isoformat()
+
+    fs.create_file(cooldown_path, contents=json.dumps({
+        "locked@example.com": recent,
+        "ready@example.com": old
+    }))
+
+    resets = [
+        {"email": "scheduled@example.com", "reset_ist": (now + datetime.timedelta(hours=2)).isoformat()},
+        {"email": "ready@example.com", "reset_ist": (now - datetime.timedelta(hours=2)).isoformat()}
+    ]
+
+    # Patch the global console object to force width
+    with patch("geminiai_cli.cooldown.console", new=Console(width=200, force_terminal=True)):
+        with patch("geminiai_cli.cooldown.get_all_resets", return_value=resets):
+            do_cooldown_list(args=None)
+
+    captured = capsys.readouterr()
+    assert "locked@example.com" in captured.out
+    assert "COOLDOWN" in captured.out
+    assert "scheduled@example.com" in captured.out
+    assert "SCHEDULED" in captured.out
+    assert "ready@example.com" in captured.out
+    assert "READY" in captured.out
+
+def test_do_cooldown_list_sync(fs, capsys):
+    """Test do_cooldown_list with cloud sync enabled."""
+    fs.create_dir(os.path.expanduser("~"))
+    args = MagicMock()
+    args.cloud = True
+
+    with patch("geminiai_cli.cooldown.resolve_credentials", return_value=("key", "app", "bucket")):
+        with patch("geminiai_cli.cooldown._sync_cooldown_file") as mock_sync:
+            with patch("geminiai_cli.cooldown.sync_resets_with_cloud") as mock_sync_resets:
+                with patch("geminiai_cli.cooldown.B2Manager"):
+                    do_cooldown_list(args=args)
+
+    assert mock_sync.called
+    assert mock_sync_resets.called
