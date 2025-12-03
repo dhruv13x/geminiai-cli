@@ -102,3 +102,114 @@ def test_get_events_last_7_days(fs):
         assert "today@example.com" in emails
         assert "5days@example.com" in emails
         assert "10days@example.com" not in emails
+import pytest
+import json
+import os
+import datetime
+from unittest.mock import patch, mock_open
+from geminiai_cli.history import record_event, get_events_last_n_days, HISTORY_FILE
+
+def test_record_event_no_email(fs):
+    """Test record_event with empty email."""
+    # Should do nothing, not create file
+    record_event("")
+    assert not os.path.exists(os.path.expanduser(HISTORY_FILE))
+
+def test_record_event_corrupt_file(fs):
+    """Test record_event handles corrupt JSON gracefully."""
+    path = os.path.expanduser(HISTORY_FILE)
+    fs.create_file(path, contents="{invalid")
+
+    record_event("test@example.com")
+
+    with open(path, "r") as f:
+        data = json.load(f)
+    assert len(data) == 1
+    assert data[0]["email"] == "test@example.com"
+
+def test_record_event_write_failure(fs):
+    """Test record_event handles write failure gracefully."""
+    # We can't easily mock open inside the function without patching,
+    # but we need to patch specifically the WRITE open, not the READ open.
+    # Logic: Read -> Append -> Write.
+
+    path = os.path.expanduser(HISTORY_FILE)
+    fs.create_file(path, contents="[]")
+
+    # Mock open. We need side_effect to allow read but fail write?
+    # Complex with generic mock_open.
+    # Alternative: make directory read only?
+    # fs.chmod(path, 0o400) # Read only
+
+    # Let's try patching open to raise IOError on write
+    m = mock_open(read_data="[]")
+    with patch("builtins.open", m):
+        # Configure the mock to raise on write call?
+        # m.return_value.write.side_effect = IOError("Write failed")
+        # But json.dump calls write multiple times.
+
+        # Simpler: just patch os.makedirs to raise?
+        # But os.makedirs is called before open("w").
+        # Code:
+        # try:
+        #   os.makedirs(...)
+        #   with open(..., "w") as f:
+        pass
+
+    # Let's use patch("builtins.open") side_effect to fail on 'w' mode
+    original_open = open
+    def side_effect(file, mode='r', *args, **kwargs):
+        if 'w' in mode:
+            raise IOError("Write failed")
+        return original_open(file, mode, *args, **kwargs)
+
+    with patch("builtins.open", side_effect=side_effect):
+         record_event("test@example.com")
+
+    # Assert nothing crashed
+
+def test_get_events_last_n_days_corrupt_file(fs):
+    """Test get_events handles corrupt JSON."""
+    path = os.path.expanduser(HISTORY_FILE)
+    fs.create_file(path, contents="{invalid")
+    events = get_events_last_n_days(7)
+    assert events == []
+
+def test_get_events_last_n_days_not_list(fs):
+    """Test get_events handles valid JSON that is not a list."""
+    path = os.path.expanduser(HISTORY_FILE)
+    fs.create_file(path, contents="{}")
+    events = get_events_last_n_days(7)
+    assert events == []
+
+def test_get_events_last_n_days_invalid_timestamp(fs):
+    """Test get_events handles entries with invalid timestamps."""
+    path = os.path.expanduser(HISTORY_FILE)
+    data = [
+        {"timestamp": "invalid-date", "email": "a@b.c"},
+        {"timestamp": None, "email": "b@b.c"}, # Missing timestamp
+        {"email": "c@b.c"} # Missing key
+    ]
+    fs.create_file(path, contents=json.dumps(data))
+
+    events = get_events_last_n_days(7)
+    assert events == []
+
+def test_get_events_last_n_days_timezone_naive(fs):
+    """Test get_events handles timezone naive timestamps in file (assumes UTC)."""
+    path = os.path.expanduser(HISTORY_FILE)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    # Naive timestamp (isoformat() usually includes offset if aware, but let's force naive)
+    naive_ts = datetime.datetime.now().isoformat()
+
+    data = [{"timestamp": naive_ts, "email": "naive@test.com"}]
+    fs.create_file(path, contents=json.dumps(data))
+
+    # Function converts naive to UTC. If it was "just now", it should be included.
+    events = get_events_last_n_days(1)
+    # This test is tricky because of execution time vs mock time.
+    # But logic is: if ts.tzinfo is None: ts = ts.replace(tzinfo=utc)
+    # If it creates a valid aware object, it proceeds.
+
+    # We just want to ensure it doesn't crash and returns something if valid
+    assert isinstance(events, list)

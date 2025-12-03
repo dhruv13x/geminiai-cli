@@ -109,3 +109,128 @@ def test_recommend_all_locked(mock_data_sources):
 
     rec = get_recommendation()
     assert rec is None
+import pytest
+import datetime
+import json
+import os
+from unittest.mock import patch, MagicMock
+from geminiai_cli.recommend import get_recommendation, do_recommend, AccountStatus
+from geminiai_cli.cooldown import COOLDOWN_FILE_PATH
+
+def test_get_recommendation_no_data(fs):
+    """Test when no data exists."""
+    fs.create_dir(os.path.expanduser("~"))
+    with patch("geminiai_cli.recommend.get_all_resets", return_value=[]):
+        rec = get_recommendation()
+        assert rec is None
+
+def test_get_recommendation_all_locked(fs):
+    """Test when all accounts are locked (Cooldown)."""
+    fs.create_dir(os.path.expanduser("~"))
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    recent = (now - datetime.timedelta(hours=1)).isoformat()
+
+    fs.create_file(cooldown_path, contents=json.dumps({"locked@test.com": recent}))
+
+    with patch("geminiai_cli.recommend.get_all_resets", return_value=[]):
+        rec = get_recommendation()
+        assert rec is None
+
+def test_get_recommendation_ready_sort_lru(fs):
+    """Test picking the LRU ready account."""
+    fs.create_dir(os.path.expanduser("~"))
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    # old1 used 10 days ago
+    old1 = (now - datetime.timedelta(days=10)).isoformat()
+    # old2 used 5 days ago
+    old2 = (now - datetime.timedelta(days=5)).isoformat()
+
+    fs.create_file(cooldown_path, contents=json.dumps({
+        "newer@test.com": old2,
+        "older@test.com": old1
+    }))
+
+    with patch("geminiai_cli.recommend.get_all_resets", return_value=[]):
+        rec = get_recommendation()
+        assert rec.email == "older@test.com"
+        assert rec.status == AccountStatus.READY
+
+def test_get_recommendation_never_used_first(fs):
+    """Test that never used accounts come before used ones."""
+    fs.create_dir(os.path.expanduser("~"))
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    old = (now - datetime.timedelta(days=10)).isoformat()
+
+    # "new@test.com" is not in cooldown file, so last_used is None
+    # "used@test.com" is in cooldown file
+    fs.create_file(cooldown_path, contents=json.dumps({"used@test.com": old}))
+
+    # We need to make sure "new@test.com" is known.
+    # It must be in resets list or cooldown list.
+    resets = [{"email": "new@test.com", "reset_ist": (now - datetime.timedelta(hours=1)).isoformat()}]
+
+    with patch("geminiai_cli.recommend.get_all_resets", return_value=resets):
+        rec = get_recommendation()
+        assert rec.email == "new@test.com"
+
+def test_get_recommendation_scheduled_ignored(fs):
+    """Test that scheduled accounts (even if not recently used) are ignored if logic dictates."""
+    # Logic: Status: READY > SCHEDULED > COOLDOWN.
+    # Candidates with Status SCHEDULED are filtered out in step 3 (only READY kept).
+
+    fs.create_dir(os.path.expanduser("~"))
+    now = datetime.datetime.now(datetime.timezone.utc)
+    future = (now + datetime.timedelta(hours=10)).isoformat()
+
+    # This email has a future reset, so it should be SCHEDULED
+    resets = [{"email": "scheduled@test.com", "reset_ist": future}]
+
+    with patch("geminiai_cli.recommend.get_all_resets", return_value=resets):
+        rec = get_recommendation()
+        assert rec is None
+
+def test_do_recommend_success(fs, capsys):
+    """Test CLI output for successful recommendation."""
+    rec = MagicMock()
+    rec.email = "best@test.com"
+    rec.last_used = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)
+
+    # Patch colors to be valid rich styles or empty
+    with patch("geminiai_cli.recommend.NEON_GREEN", "green"), \
+         patch("geminiai_cli.recommend.NEON_RED", "red"), \
+         patch("geminiai_cli.recommend.get_recommendation", return_value=rec):
+        do_recommend()
+
+    captured = capsys.readouterr()
+    assert "best@test.com" in captured.out
+    assert "2d" in captured.out
+    assert "Account is Ready" in captured.out
+
+def test_do_recommend_none(fs, capsys):
+    """Test CLI output when no recommendation found."""
+    with patch("geminiai_cli.recommend.NEON_GREEN", "green"), \
+         patch("geminiai_cli.recommend.NEON_RED", "red"), \
+         patch("geminiai_cli.recommend.get_recommendation", return_value=None):
+        do_recommend()
+
+    captured = capsys.readouterr()
+    assert "No 'Green' (Ready) accounts" in captured.out
+
+def test_do_recommend_never_used(fs, capsys):
+    """Test CLI output for never used account."""
+    rec = MagicMock()
+    rec.email = "fresh@test.com"
+    rec.last_used = None
+
+    with patch("geminiai_cli.recommend.NEON_GREEN", "green"), \
+         patch("geminiai_cli.recommend.NEON_RED", "red"), \
+         patch("geminiai_cli.recommend.get_recommendation", return_value=rec):
+        do_recommend()
+
+    captured = capsys.readouterr()
+    assert "fresh@test.com" in captured.out
+    assert "Never / Unknown" in captured.out
