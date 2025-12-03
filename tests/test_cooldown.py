@@ -395,7 +395,8 @@ def test_do_remove_account_no_credentials(fs, capsys):
 
     with patch("geminiai_cli.cooldown.remove_entry_by_id", return_value=True):
         with patch("geminiai_cli.cooldown.resolve_credentials", side_effect=ValueError("No creds")):
-            do_remove_account("test@example.com", args=None)
+            with patch("geminiai_cli.cooldown.get_cooldown_data", return_value={"test@example.com": "2023-10-27T10:00:00+00:00"}):
+                do_remove_account("test@example.com", args=None)
 
     captured = capsys.readouterr()
     assert "Removed reset history" in captured.out
@@ -444,7 +445,12 @@ def test_sync_cooldown_file_upload_no_local(fs, capsys):
 def test_sync_cooldown_file_upload_exception(fs, capsys):
     """Test upload sync raising exception."""
     fs.create_dir(os.path.expanduser("~"))
-    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    # Use MOCK_COOLDOWN_PATH because the module is patched to use it
+    cooldown_path = MOCK_COOLDOWN_PATH
+    # Create the parent directory for the mock path if needed, though create_file usually handles it if it's just a file
+    if not os.path.exists(os.path.dirname(cooldown_path)):
+        fs.create_dir(os.path.dirname(cooldown_path))
+        
     fs.create_file(cooldown_path, contents="{}")
 
     args = MagicMock()
@@ -486,7 +492,11 @@ def test_do_cooldown_list_empty(fs, capsys):
 def test_do_cooldown_list_with_data(fs, capsys):
     """Test do_cooldown_list with various account states."""
     fs.create_dir(os.path.expanduser("~"))
-    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    cooldown_path = MOCK_COOLDOWN_PATH
+
+    # Ensure parent dir exists
+    if not os.path.exists(os.path.dirname(cooldown_path)):
+        fs.create_dir(os.path.dirname(cooldown_path))
 
     now = datetime.datetime.now(datetime.timezone.utc)
     recent = (now - datetime.timedelta(hours=1)).isoformat()

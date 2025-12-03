@@ -110,7 +110,6 @@ def test_recommend_all_locked(mock_data_sources):
     rec = get_recommendation()
     assert rec is None
 import pytest
-import datetime
 import json
 import os
 from unittest.mock import patch, MagicMock
@@ -128,8 +127,8 @@ def test_get_recommendation_all_locked(fs):
     """Test when all accounts are locked (Cooldown)."""
     fs.create_dir(os.path.expanduser("~"))
     cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
-    now = datetime.datetime.now(datetime.timezone.utc)
-    recent = (now - datetime.timedelta(hours=1)).isoformat()
+    now = datetime.now(timezone.utc)
+    recent = (now - timedelta(hours=1)).isoformat()
 
     fs.create_file(cooldown_path, contents=json.dumps({"locked@test.com": recent}))
 
@@ -141,12 +140,12 @@ def test_get_recommendation_ready_sort_lru(fs):
     """Test picking the LRU ready account."""
     fs.create_dir(os.path.expanduser("~"))
     cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.now(timezone.utc)
 
     # old1 used 10 days ago
-    old1 = (now - datetime.timedelta(days=10)).isoformat()
+    old1 = (now - timedelta(days=10)).isoformat()
     # old2 used 5 days ago
-    old2 = (now - datetime.timedelta(days=5)).isoformat()
+    old2 = (now - timedelta(days=5)).isoformat()
 
     fs.create_file(cooldown_path, contents=json.dumps({
         "newer@test.com": old2,
@@ -162,8 +161,8 @@ def test_get_recommendation_never_used_first(fs):
     """Test that never used accounts come before used ones."""
     fs.create_dir(os.path.expanduser("~"))
     cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
-    now = datetime.datetime.now(datetime.timezone.utc)
-    old = (now - datetime.timedelta(days=10)).isoformat()
+    now = datetime.now(timezone.utc)
+    old = (now - timedelta(days=10)).isoformat()
 
     # "new@test.com" is not in cooldown file, so last_used is None
     # "used@test.com" is in cooldown file
@@ -171,7 +170,7 @@ def test_get_recommendation_never_used_first(fs):
 
     # We need to make sure "new@test.com" is known.
     # It must be in resets list or cooldown list.
-    resets = [{"email": "new@test.com", "reset_ist": (now - datetime.timedelta(hours=1)).isoformat()}]
+    resets = [{"email": "new@test.com", "reset_ist": (now - timedelta(hours=1)).isoformat()}]
 
     with patch("geminiai_cli.recommend.get_all_resets", return_value=resets):
         rec = get_recommendation()
@@ -183,8 +182,8 @@ def test_get_recommendation_scheduled_ignored(fs):
     # Candidates with Status SCHEDULED are filtered out in step 3 (only READY kept).
 
     fs.create_dir(os.path.expanduser("~"))
-    now = datetime.datetime.now(datetime.timezone.utc)
-    future = (now + datetime.timedelta(hours=10)).isoformat()
+    now = datetime.now(timezone.utc)
+    future = (now + timedelta(hours=10)).isoformat()
 
     # This email has a future reset, so it should be SCHEDULED
     resets = [{"email": "scheduled@test.com", "reset_ist": future}]
@@ -197,7 +196,7 @@ def test_do_recommend_success(fs, capsys):
     """Test CLI output for successful recommendation."""
     rec = MagicMock()
     rec.email = "best@test.com"
-    rec.last_used = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)
+    rec.last_used = datetime.now(timezone.utc) - timedelta(days=2)
 
     # Patch colors to be valid rich styles or empty
     with patch("geminiai_cli.recommend.NEON_GREEN", "green"), \
