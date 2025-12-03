@@ -8,7 +8,8 @@
     "previewFeatures": true,
     "disableAutoUpdate": true,
     "enablePromptCompletion": true,
-    "maxSessionTurns": -1
+    "maxSessionTurns": -1,
+    "chat_history_backup_path": "~/gemini_chat_backups"
   },
   "ui": {
     "showStatusInTitle": true,

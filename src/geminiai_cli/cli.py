@@ -17,7 +17,6 @@ from .settings_cli import do_config
 from .doctor import do_doctor
 from .prune import do_prune
 from .update import do_update, do_check_update
-from .cleanup import do_cleanup
 from .recommend import do_recommend
 from .stats import do_stats
 from .reset_helpers import (
@@ -26,13 +25,14 @@ from .reset_helpers import (
     do_list_resets,
     remove_entry_by_id,
 )
-from .config import NEON_YELLOW, NEON_CYAN, DEFAULT_BACKUP_DIR
+from .config import NEON_YELLOW, NEON_CYAN, DEFAULT_BACKUP_DIR, DEFAULT_GEMINI_HOME
 from .backup import perform_backup
 from .restore import perform_restore
 from .integrity import perform_integrity_check
 from .list_backups import perform_list_backups
 from .check_b2 import perform_check_b2
 from .sync import cloud_sync, local_sync
+from .chat import backup_chat_history, restore_chat_history, cleanup_chat_history, resume_chat, CHAT_HISTORY_BACKUP_PATH
 from .project_config import load_project_config, normalize_config_keys
 
 def print_rich_help():
@@ -49,10 +49,10 @@ def print_rich_help():
     commands = [
         ("backup", "Backup Gemini configuration and chats"),
         ("restore", "Restore Gemini configuration from a backup"),
+        ("chat", "Manage chat history"),
         ("check-integrity", "Check integrity of current configuration"),
         ("list-backups", "List available backups"),
         ("prune", "Prune old backups (local or cloud)"),
-        ("cleanup", "Clear temporary chat history and logs"),
         ("check-b2", "Verify Backblaze B2 credentials"),
         ("cloud-sync", "Sync local backups to Cloud"),
         ("local-sync", "Sync Cloud backups to local"),
@@ -192,6 +192,16 @@ def main():
     restore_parser.add_argument("--b2-key", help="B2 App Key")
     restore_parser.add_argument("--auto", action="store_true", help="Automatically restore the best available account")
 
+    # Chat command
+    chat_parser = subparsers.add_parser("chat", help="Manage chat history.")
+    chat_subparsers = chat_parser.add_subparsers(dest="chat_command", help="Chat commands")
+    chat_backup_parser = chat_subparsers.add_parser("backup", help="Backup chat history.")
+    chat_restore_parser = chat_subparsers.add_parser("restore", help="Restore chat history.")
+    chat_cleanup_parser = chat_subparsers.add_parser("cleanup", help="Clear temporary chat history and logs.")
+    chat_cleanup_parser.add_argument("--dry-run", action="store_true", help="Show what would be deleted without doing it")
+    chat_cleanup_parser.add_argument("--force", action="store_true", help="Skip confirmation prompt")
+    chat_resume_parser = chat_subparsers.add_parser("resume", help="Resume the last chat session.")
+
     # Integrity check command
     integrity_parser = subparsers.add_parser("check-integrity", help="Check integrity of current configuration against the latest backup.")
     integrity_parser.add_argument("--src", default="~/.gemini", help="Source directory for integrity check (default: ~/.gemini)")
@@ -253,11 +263,6 @@ def main():
     prune_parser.add_argument("--b2-id", help="B2 Key ID")
     prune_parser.add_argument("--b2-key", help="B2 App Key")
 
-    # Cleanup command
-    cleanup_parser = subparsers.add_parser("cleanup", help="Clear temporary chat history and logs.")
-    cleanup_parser.add_argument("--dry-run", action="store_true", help="Show what would be deleted without doing it")
-    cleanup_parser.add_argument("--force", action="store_true", help="Skip confirmation prompt")
-
     # Cooldown command
     cooldown_parser = subparsers.add_parser("cooldown", help="Show account cooldown status, with optional cloud sync.")
     cooldown_parser.add_argument("--cloud", action="store_true", help="Sync cooldown status from the cloud.")
@@ -279,6 +284,15 @@ def main():
         perform_backup(args)
     elif args.command == "restore":
         perform_restore(args)
+    elif args.command == "chat":
+        if args.chat_command == "backup":
+            backup_chat_history(CHAT_HISTORY_BACKUP_PATH, DEFAULT_GEMINI_HOME)
+        elif args.chat_command == "restore":
+            restore_chat_history(CHAT_HISTORY_BACKUP_PATH, DEFAULT_GEMINI_HOME)
+        elif args.chat_command == "cleanup":
+            cleanup_chat_history(args.dry_run, args.force, DEFAULT_GEMINI_HOME)
+        elif args.chat_command == "resume":
+            resume_chat()
     elif args.command == "check-integrity":
         perform_integrity_check(args)
     elif args.command == "list-backups":
@@ -295,8 +309,6 @@ def main():
         do_doctor()
     elif args.command == "prune":
         do_prune(args)
-    elif args.command == "cleanup":
-        do_cleanup(args)
     elif args.command == "cooldown":
         if args.remove:
             do_remove_account(args.remove[0], args)
