@@ -2,8 +2,8 @@
 import pytest
 import os
 from unittest.mock import MagicMock, patch
-from geminiai_cli.cleanup import do_cleanup
-from geminiai_cli.config import DEFAULT_GEMINI_HOME
+from pathlib import Path
+from geminiai_cli.chat import cleanup_chat_history
 
 @pytest.fixture
 def mock_fs(mocker):
@@ -19,7 +19,7 @@ def mock_args():
 def test_do_cleanup_dir_not_exists(mock_args, capsys, mocker):
     mocker.patch("os.path.exists", return_value=False)
 
-    do_cleanup(mock_args)
+    cleanup_chat_history(mock_args.dry_run, mock_args.force, Path("/mock/home"))
 
     captured = capsys.readouterr()
     assert "Nothing to clean. Directory not found" in captured.out
@@ -28,7 +28,7 @@ def test_do_cleanup_list_error(mock_args, capsys, mocker):
     mocker.patch("os.path.exists", return_value=True)
     mocker.patch("os.listdir", side_effect=Exception("Permission denied"))
 
-    do_cleanup(mock_args)
+    cleanup_chat_history(mock_args.dry_run, mock_args.force, Path("/mock/home"))
 
     captured = capsys.readouterr()
     assert "Could not list directory" in captured.out
@@ -37,7 +37,7 @@ def test_do_cleanup_nothing_to_remove(mock_args, capsys, mocker):
     mocker.patch("os.path.exists", return_value=True)
     mocker.patch("os.listdir", return_value=["bin"]) # Only preserved item
 
-    do_cleanup(mock_args)
+    cleanup_chat_history(mock_args.dry_run, mock_args.force, Path("/mock/home"))
 
     captured = capsys.readouterr()
     assert "Directory is already clean" in captured.out
@@ -47,7 +47,7 @@ def test_do_cleanup_cancelled(mock_args, capsys, mocker):
     mocker.patch("os.listdir", return_value=["file1", "bin"])
     mocker.patch("builtins.input", return_value="n")
 
-    do_cleanup(mock_args)
+    cleanup_chat_history(mock_args.dry_run, mock_args.force, Path("/mock/home"))
 
     captured = capsys.readouterr()
     assert "Cleanup cancelled" in captured.out
@@ -71,7 +71,7 @@ def test_do_cleanup_force_success(mock_args, capsys, mocker):
     mock_unlink = mocker.patch("os.unlink")
     mock_rmtree = mocker.patch("shutil.rmtree")
 
-    do_cleanup(mock_args)
+    cleanup_chat_history(mock_args.dry_run, mock_args.force, Path("/mock/home"))
 
     assert mock_unlink.call_count == 1
     assert mock_rmtree.call_count == 1
@@ -87,7 +87,7 @@ def test_do_cleanup_dry_run(mock_args, capsys, mocker):
     mock_unlink = mocker.patch("os.unlink")
     mock_rmtree = mocker.patch("shutil.rmtree")
 
-    do_cleanup(mock_args)
+    cleanup_chat_history(mock_args.dry_run, mock_args.force, Path("/mock/home"))
 
     mock_unlink.assert_not_called()
     mock_rmtree.assert_not_called()
@@ -104,7 +104,7 @@ def test_do_cleanup_interactive_yes(mock_args, capsys, mocker):
     mocker.patch("os.path.isfile", return_value=True)
     mock_unlink = mocker.patch("os.unlink")
 
-    do_cleanup(mock_args)
+    cleanup_chat_history(mock_args.dry_run, mock_args.force, Path("/mock/home"))
 
     mock_unlink.assert_called_once()
     captured = capsys.readouterr()
@@ -117,7 +117,7 @@ def test_do_cleanup_delete_error(mock_args, capsys, mocker):
     mocker.patch("os.path.isfile", return_value=True)
     mocker.patch("os.unlink", side_effect=Exception("Disk error"))
 
-    do_cleanup(mock_args)
+    cleanup_chat_history(mock_args.dry_run, mock_args.force, Path("/mock/home"))
 
     captured = capsys.readouterr()
     assert "Failed to delete file1" in captured.out
