@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import os
-from geminiai_cli.sync import cloud_sync, local_sync, get_local_backups, get_cloud_backups
+from geminiai_cli.sync import perform_sync, get_local_backups, get_cloud_backups
 
 def mock_args(backup_dir="/tmp/backups", b2_id=None, b2_key=None, bucket=None):
     return MagicMock(backup_dir=backup_dir, b2_id=b2_id, b2_key=b2_key, bucket=bucket)
@@ -18,9 +18,10 @@ def test_get_local_backups(mock_isfile, mock_listdir, mock_isdir):
     assert "file2.txt" not in files
 
 @patch("os.path.isdir", return_value=False)
-def test_get_local_backups_fail(mock_isdir):
-    with pytest.raises(SystemExit):
-        get_local_backups("/path")
+def test_get_local_backups_no_dir(mock_isdir):
+    # get_local_backups returns empty set if dir not found
+    files = get_local_backups("/path")
+    assert files == set()
 
 def test_get_cloud_backups():
     mock_b2 = MagicMock()
@@ -48,7 +49,7 @@ def test_get_cloud_backups_fail():
 @patch("geminiai_cli.sync.get_local_backups")
 @patch("geminiai_cli.sync.get_cloud_backups")
 @patch("geminiai_cli.sync.cprint")
-def test_cloud_sync_upload(mock_cprint, mock_get_cloud, mock_get_local, mock_creds, mock_b2_class):
+def test_perform_sync_push_upload(mock_cprint, mock_get_cloud, mock_get_local, mock_creds, mock_b2_class):
     mock_creds.return_value = ("id", "key", "bucket")
     mock_get_local.return_value = {"local.gemini.tar.gz"}
     mock_get_cloud.return_value = set() # Empty cloud
@@ -56,7 +57,8 @@ def test_cloud_sync_upload(mock_cprint, mock_get_cloud, mock_get_local, mock_cre
     mock_b2 = mock_b2_class.return_value
 
     args = mock_args()
-    cloud_sync(args)
+    with patch("os.path.isdir", return_value=True):
+         perform_sync("push", args)
 
     mock_b2.upload.assert_called()
 
@@ -65,7 +67,7 @@ def test_cloud_sync_upload(mock_cprint, mock_get_cloud, mock_get_local, mock_cre
 @patch("geminiai_cli.sync.get_local_backups")
 @patch("geminiai_cli.sync.get_cloud_backups")
 @patch("geminiai_cli.sync.cprint")
-def test_cloud_sync_no_upload(mock_cprint, mock_get_cloud, mock_get_local, mock_creds, mock_b2_class):
+def test_perform_sync_push_no_upload(mock_cprint, mock_get_cloud, mock_get_local, mock_creds, mock_b2_class):
     mock_creds.return_value = ("id", "key", "bucket")
     mock_get_local.return_value = {"file.gemini.tar.gz"}
     mock_get_cloud.return_value = {"file.gemini.tar.gz"} # Already exists
@@ -73,7 +75,8 @@ def test_cloud_sync_no_upload(mock_cprint, mock_get_cloud, mock_get_local, mock_
     mock_b2 = mock_b2_class.return_value
 
     args = mock_args()
-    cloud_sync(args)
+    with patch("os.path.isdir", return_value=True):
+        perform_sync("push", args)
 
     mock_b2.upload.assert_not_called()
 
@@ -82,7 +85,7 @@ def test_cloud_sync_no_upload(mock_cprint, mock_get_cloud, mock_get_local, mock_
 @patch("geminiai_cli.sync.get_local_backups")
 @patch("geminiai_cli.sync.get_cloud_backups")
 @patch("geminiai_cli.sync.cprint")
-def test_local_sync_download(mock_cprint, mock_get_cloud, mock_get_local, mock_creds, mock_b2_class):
+def test_perform_sync_pull_download(mock_cprint, mock_get_cloud, mock_get_local, mock_creds, mock_b2_class):
     mock_creds.return_value = ("id", "key", "bucket")
     mock_get_local.return_value = set()
     mock_get_cloud.return_value = {"cloud.gemini.tar.gz"}
@@ -91,7 +94,8 @@ def test_local_sync_download(mock_cprint, mock_get_cloud, mock_get_local, mock_c
 
     args = mock_args()
     with patch("os.makedirs"): # mock makedirs for backup_dir
-        local_sync(args)
+        with patch("os.path.isdir", return_value=True):
+             perform_sync("pull", args)
 
     mock_b2.download.assert_called()
 
@@ -100,7 +104,7 @@ def test_local_sync_download(mock_cprint, mock_get_cloud, mock_get_local, mock_c
 @patch("geminiai_cli.sync.get_local_backups")
 @patch("geminiai_cli.sync.get_cloud_backups")
 @patch("geminiai_cli.sync.cprint")
-def test_local_sync_no_download(mock_cprint, mock_get_cloud, mock_get_local, mock_creds, mock_b2_class):
+def test_perform_sync_pull_no_download(mock_cprint, mock_get_cloud, mock_get_local, mock_creds, mock_b2_class):
     mock_creds.return_value = ("id", "key", "bucket")
     mock_get_local.return_value = {"file.gemini.tar.gz"}
     mock_get_cloud.return_value = {"file.gemini.tar.gz"}
@@ -109,6 +113,17 @@ def test_local_sync_no_download(mock_cprint, mock_get_cloud, mock_get_local, moc
 
     args = mock_args()
     with patch("os.makedirs"):
-        local_sync(args)
+        with patch("os.path.isdir", return_value=True):
+            perform_sync("pull", args)
 
     mock_b2.download.assert_not_called()
+
+@patch("geminiai_cli.sync.resolve_credentials")
+@patch("geminiai_cli.sync.cprint")
+def test_perform_sync_push_missing_dir(mock_cprint, mock_creds):
+    mock_creds.return_value = ("id", "key", "bucket")
+    args = mock_args()
+
+    with patch("os.path.isdir", return_value=False):
+        with pytest.raises(SystemExit):
+            perform_sync("push", args)
