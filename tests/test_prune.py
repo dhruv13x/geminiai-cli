@@ -3,22 +3,45 @@
 import pytest
 from unittest.mock import patch, MagicMock, call
 import os
-from geminiai_cli.prune import do_prune, get_backup_list, prune_list
+import time
+from geminiai_cli.prune import do_prune, get_backup_list, get_backup_list_dirs, prune_list, parse_ts
 
 def mock_args(backup_dir="/tmp/backups", keep=2, cloud=False, cloud_only=False, dry_run=False, b2_id=None, b2_key=None, bucket=None):
     return MagicMock(backup_dir=backup_dir, keep=keep, cloud=cloud, cloud_only=cloud_only, dry_run=dry_run, b2_id=b2_id, b2_key=b2_key, bucket=bucket)
+
+def test_parse_ts():
+    ts = parse_ts("2023-01-01_120000-backup.gemini.tar.gz")
+    assert ts is not None
+    assert ts.tm_year == 2023
+
+    assert parse_ts("invalid") is None
+    assert parse_ts("2023-01-01_120000-backup.gemini") is not None # Directory format
 
 def test_get_backup_list():
     files = [
         "2023-01-01_100000-user@example.com.gemini.tar.gz",
         "2023-01-02_100000-user@example.com.gemini.tar.gz",
-        "invalid.txt"
+        "invalid.txt",
+        "2023-01-03_100000-user@example.com.gemini" # Should be ignored by get_backup_list
     ]
     backups = get_backup_list(files)
     assert len(backups) == 2
     # Should be sorted newest first
     assert backups[0][1] == "2023-01-02_100000-user@example.com.gemini.tar.gz"
     assert backups[1][1] == "2023-01-01_100000-user@example.com.gemini.tar.gz"
+
+def test_get_backup_list_dirs():
+    files = [
+        "2023-01-01_100000-user@example.com.gemini",
+        "2023-01-02_100000-user@example.com.gemini",
+        "invalid.txt",
+        "2023-01-03_100000-user@example.com.gemini.tar.gz" # Should be ignored by get_backup_list_dirs
+    ]
+    dirs = get_backup_list_dirs(files)
+    assert len(dirs) == 2
+    # Should be sorted newest first
+    assert dirs[0][1] == "2023-01-02_100000-user@example.com.gemini"
+    assert dirs[1][1] == "2023-01-01_100000-user@example.com.gemini"
 
 def test_prune_list_no_action():
     backups = [("ts1", "file1"), ("ts2", "file2")]
@@ -44,28 +67,54 @@ def test_prune_list_dry_run():
 @patch("os.path.exists", return_value=True)
 @patch("os.listdir")
 @patch("os.remove")
+@patch("shutil.rmtree") # For directory deletion
 @patch("geminiai_cli.prune.cprint")
-def test_do_prune_local(mock_cprint, mock_remove, mock_listdir, mock_exists):
-    mock_listdir.return_value = [
-        "2023-01-01_100000-u.gemini.tar.gz",
-        "2023-01-02_100000-u.gemini.tar.gz",
-        "2023-01-03_100000-u.gemini.tar.gz"
+def test_do_prune_local(mock_cprint, mock_rmtree, mock_remove, mock_listdir, mock_exists):
+    # Mock os.listdir to return different lists for archives and directories
+    # os.listdir for archive_dir, then for dir_backup_path
+    mock_listdir.side_effect = [
+        # First call for archive_dir (local archives)
+        [
+            "2023-01-01_100000-u.gemini.tar.gz",
+            "2023-01-02_100000-u.gemini.tar.gz",
+            "2023-01-03_100000-u.gemini.tar.gz"
+        ],
+        # Second call for dir_backup_path (local directories)
+        [
+            "2023-01-01_110000-u.gemini",
+            "2023-01-02_110000-u.gemini",
+            "2023-01-03_110000-u.gemini"
+        ]
     ]
-    args = mock_args(keep=1)
 
-    with patch("os.path.abspath", return_value="/tmp/backups"):
-        do_prune(args)
+    args = mock_args(keep=1) # Keep only the newest for both archives and directories
 
-    # Should delete the 2 oldest
+    with patch("os.path.abspath", side_effect=lambda x: x): # Mock abspath for test simplicity
+        with patch("os.path.expanduser", side_effect=lambda x: x): # Mock expanduser
+            do_prune(args)
+
+    # Should delete 2 oldest archives
     assert mock_remove.call_count == 2
+    calls = [args[0][0] for args in mock_remove.call_args_list]
+    assert any("2023-01-01_100000-u.gemini.tar.gz" in c for c in calls)
+    assert any("2023-01-02_100000-u.gemini.tar.gz" in c for c in calls)
+
+    # Should delete 2 oldest directories
+    assert mock_rmtree.call_count == 2
+    calls = [args[0][0] for args in mock_rmtree.call_args_list]
+    assert any("2023-01-01_110000-u.gemini" in c for c in calls)
+    assert any("2023-01-02_110000-u.gemini" in c for c in calls)
+
 
 @patch("os.path.exists", return_value=False)
 @patch("geminiai_cli.prune.cprint")
 def test_do_prune_local_no_dir(mock_cprint, mock_exists):
-    args = mock_args(keep=1)
+    args = mock_args(keep=1) # default local
     do_prune(args)
-    # Just prints warning
-    mock_cprint.assert_called()
+    # Just prints warning for both archive and directory paths not found
+    assert any("Archive backup directory not found" in str(args) for args in mock_cprint.call_args_list)
+    assert any("Directory backup path not found" in str(args) for args in mock_cprint.call_args_list)
+
 
 @patch("geminiai_cli.prune.resolve_credentials")
 @patch("geminiai_cli.prune.B2Manager")
@@ -85,9 +134,9 @@ def test_do_prune_cloud(mock_cprint, mock_b2_cls, mock_creds):
 
     mock_b2.list_backups.return_value = [(fv1, None), (fv2, None)]
 
-    args = mock_args(keep=1, cloud=True)
-
-    with patch("os.path.exists", return_value=False): # Skip local
+    args = mock_args(keep=1, cloud=True, backup_dir="/tmp/nonexistent") # Local part will be skipped
+    
+    with patch("os.path.exists", return_value=False): # Skip local checks
         do_prune(args)
 
     mock_b2.bucket.delete_file_version.assert_called_once_with("id1", "2023-01-01_100000-u.gemini.tar.gz")
@@ -96,17 +145,22 @@ def test_do_prune_cloud(mock_cprint, mock_b2_cls, mock_creds):
 @patch("geminiai_cli.prune.cprint")
 def test_do_prune_cloud_no_creds(mock_cprint, mock_creds):
     mock_creds.return_value = (None, None, None)
-    args = mock_args(cloud=True)
-    do_prune(args)
-    # Warning printed
+    args = mock_args(cloud=True, cloud_only=False, backup_dir="/tmp/nonexistent") # Local will try to run
+    
+    with patch("os.path.exists", return_value=False): # Skip local checks
+        # This should warn about skipping cloud, not exit, if cloud_only is False.
+        do_prune(args)
+    assert any("Skipping (credentials not set)." in str(args) for args in mock_cprint.call_args_list)
 
 @patch("geminiai_cli.prune.resolve_credentials")
 @patch("geminiai_cli.prune.cprint")
-def test_do_prune_cloud_only_no_creds(mock_cprint, mock_creds):
+def test_do_prune_cloud_only_no_creds_error(mock_cprint, mock_creds):
     mock_creds.return_value = (None, None, None)
     args = mock_args(cloud_only=True)
     do_prune(args)
     # Error printed
+    assert any("Cloud credentials missing." in str(args) for args in mock_cprint.call_args_list)
+
 
 @patch("geminiai_cli.prune.resolve_credentials")
 @patch("geminiai_cli.prune.B2Manager")
@@ -115,31 +169,34 @@ def test_do_prune_cloud_exception(mock_cprint, mock_b2_cls, mock_creds):
     mock_creds.return_value = ("id", "key", "bucket")
     mock_b2_cls.side_effect = Exception("B2 Fail")
 
-    args = mock_args(cloud=True)
+    args = mock_args(cloud=True, backup_dir="/tmp/nonexistent")
 
     with patch("os.path.exists", return_value=False):
         do_prune(args)
 
-    mock_cprint.assert_called()
+    assert any("Cloud prune failed" in str(args) for args in mock_cprint.call_args_list)
 
 @patch("os.path.exists", return_value=True)
 @patch("os.listdir")
 @patch("os.remove")
+@patch("shutil.rmtree")
 @patch("geminiai_cli.prune.cprint")
-def test_do_prune_local_remove_fail(mock_cprint, mock_remove, mock_listdir, mock_exists):
-    mock_listdir.return_value = [
-        "2023-01-01_100000-u.gemini.tar.gz",
-        "2023-01-02_100000-u.gemini.tar.gz",
+def test_do_prune_local_remove_fail(mock_cprint, mock_rmtree, mock_remove, mock_listdir, mock_exists):
+    mock_listdir.side_effect = [
+        ["2023-01-01_100000-u.gemini.tar.gz"], # archive_dir
+        ["2023-01-01_110000-u.gemini"] # dir_backup_path
     ]
-    mock_remove.side_effect = Exception("Permission denied")
-    args = mock_args(keep=1)
+    mock_remove.side_effect = Exception("Permission denied for file")
+    mock_rmtree.side_effect = Exception("Permission denied for dir")
+    args = mock_args(keep=0) # delete all
 
-    with patch("os.path.abspath", return_value="/tmp/backups"):
-        do_prune(args)
+    with patch("os.path.abspath", side_effect=lambda x: x):
+        with patch("os.path.expanduser", side_effect=lambda x: x):
+            do_prune(args)
 
-    # Assert error logged
-    # Not easily assertable on cprint message content without more complex mock check,
-    # but ensuring it doesn't crash is good.
+    assert any("Failed to remove /tmp/backups/2023-01-01_100000-u.gemini.tar.gz" in str(args) for args in mock_cprint.call_args_list)
+    assert any("Failed to remove directory /root/.geminiai-cli/old_configs/2023-01-01_110000-u.gemini" in str(args) for args in mock_cprint.call_args_list)
+
 
 @patch("geminiai_cli.prune.resolve_credentials")
 @patch("geminiai_cli.prune.B2Manager")
@@ -158,9 +215,10 @@ def test_do_prune_cloud_delete_fail(mock_cprint, mock_b2_cls, mock_creds):
     mock_b2.list_backups.return_value = [(fv1, None), (fv2, None)]
     mock_b2.bucket.delete_file_version.side_effect = Exception("API Fail")
 
-    args = mock_args(keep=1, cloud=True)
+    args = mock_args(keep=1, cloud=True, backup_dir="/tmp/nonexistent")
 
     with patch("os.path.exists", return_value=False):
         do_prune(args)
 
     mock_b2.bucket.delete_file_version.assert_called()
+    assert any("Failed to delete cloud file 2023-01-01_100000-u.gemini.tar.gz" in str(args) for args in mock_cprint.call_args_list)
