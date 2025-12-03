@@ -197,9 +197,9 @@ def test_main_from_dir_not_found(mock_exists, mock_lock):
 @patch("os.path.exists")
 def test_main_from_archive_search_dir(mock_exists, mock_lock):
     def side_effect(path):
-        if "archive.tar.gz" in path and "geminiai/backups" not in path:
+        if "archive.tar.gz" in path and ".geminiai-cli/backups" not in path:
             return False # User path not found
-        if "archive.tar.gz" in path and "geminiai/backups" in path:
+        if "archive.tar.gz" in path and ".geminiai-cli/backups" in path:
             return True # Search dir path found
         return True # Default for others (locale etc)
     mock_exists.side_effect = side_effect

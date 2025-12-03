@@ -31,7 +31,7 @@ def do_remove_account(email: str, args=None):
         cprint(NEON_YELLOW, f"[INFO] No reset history found for {email}")
 
     # 2. Remove from Cooldowns (State)
-    path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    path = os.path.expanduser(COOLDOWN_FILE)
     data = get_cooldown_data()
     
     if email in data:
