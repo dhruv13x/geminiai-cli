@@ -12,11 +12,12 @@ from geminiai_cli import restore
 @patch("os.path.exists", return_value=True)
 @patch("os.makedirs")
 @patch("os.replace")
+@patch("shutil.move")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
 @patch("os.listdir")
 @patch("os.path.isfile", return_value=True)
-def test_restore_auto_success(mock_isfile, mock_listdir, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_rec, mock_lock):
+def test_restore_auto_success(mock_isfile, mock_listdir, mock_mkdtemp, mock_rmtree, mock_move, mock_replace, mock_makedirs, mock_exists, mock_run, mock_rec, mock_lock):
     # Setup mock recommendation
     mock_rec_obj = MagicMock()
     mock_rec_obj.email = "auto@example.com"
