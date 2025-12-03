@@ -250,7 +250,7 @@ def test_main_check_b2_args(mock_check):
 # Test arg parsing for check-integrity
 @patch("geminiai_cli.cli.perform_integrity_check")
 def test_main_integrity_args(mock_integrity):
-    with patch("sys.argv", ["geminiai", "check-integrity", "--src", "s", "--search-dir", "d"]):
+    with patch("sys.argv", ["geminiai", "check-integrity", "--src", "s"]):
         main()
         mock_integrity.assert_called()
 
