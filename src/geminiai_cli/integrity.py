@@ -20,6 +20,16 @@ def run(cmd: str, check: bool = True, capture: bool = False):
     if capture:
         return subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return subprocess.run(cmd, shell=True, check=check)
+
+def parse_timestamp_from_name(name: str) -> Optional[time.struct_time]:
+    match = TIMESTAMPED_DIR_REGEX.match(name)
+    if not match:
+        return None
+    ts_str = match.group(1)
+    try:
+        return time.strptime(ts_str, "%Y-%m-%d_%H%M%S")
+    except ValueError:
+        return None
     
 def find_latest_backup(search_dir: str) -> Optional[str]:
     """
@@ -49,6 +59,8 @@ def perform_integrity_check(args: argparse.Namespace):
     # Fallback if args missing or None
     if not hasattr(args, 'src') or args.src is None:
         args.src = "~/.gemini"
+    
+    src = os.path.abspath(os.path.expanduser(args.src))
     
     # This command specifically checks against directory backups, so we hardcode the search path
     search_dir = os.path.abspath(os.path.expanduser(OLD_CONFIGS_DIR))
