@@ -10,7 +10,6 @@ from geminiai_cli.cooldown import (
     get_cooldown_data,
     record_switch,
     do_cooldown_list,
-    COOLDOWN_FILE_PATH,
     CLOUD_COOLDOWN_FILENAME,
 )
 from rich.table import Table
@@ -59,8 +58,8 @@ def mock_fs(fs):
 
 @pytest.fixture(autouse=True)
 def patch_env(monkeypatch):
-    # Patch the COOLDOWN_FILE_PATH in the module to point to our mock path
-    monkeypatch.setattr("geminiai_cli.cooldown.COOLDOWN_FILE_PATH", MOCK_COOLDOWN_PATH)
+    # Patch the COOLDOWN_FILE in the module to point to our mock path
+    monkeypatch.setattr("geminiai_cli.cooldown.COOLDOWN_FILE", MOCK_COOLDOWN_PATH)
 
 
 def test_sync_cooldown_file_no_creds(mock_resolve_credentials, mock_cprint, mock_args):
@@ -381,14 +380,12 @@ import json
 import os
 import datetime
 from unittest.mock import MagicMock, patch
-from geminiai_cli.cooldown import do_remove_account, record_switch, get_cooldown_data, _sync_cooldown_file, do_cooldown_list, COOLDOWN_FILE_PATH
+from geminiai_cli.cooldown import do_remove_account, record_switch, get_cooldown_data, _sync_cooldown_file, do_cooldown_list
 from rich.console import Console
 
 def test_do_remove_account_no_credentials(fs, capsys):
     """Test removing an account when no credentials are provided."""
-    fs.create_dir(os.path.expanduser("~"))
-
-    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    cooldown_path = os.path.expanduser(MOCK_COOLDOWN_PATH)
     resets_path = os.path.join(os.path.expanduser("~"), "geminiai", "data", "resets.json")
 
     # Ensure parent directories exist
@@ -413,7 +410,7 @@ def test_do_remove_account_no_credentials(fs, capsys):
 def test_do_remove_account_with_credentials_sync_fail(fs, capsys):
     """Test removing an account with credentials but sync failing."""
     fs.create_dir(os.path.expanduser("~"))
-    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    cooldown_path = os.path.expanduser(MOCK_COOLDOWN_PATH)
     fs.create_file(cooldown_path, contents=json.dumps({"test@example.com": "2023-10-27T10:00:00+00:00"}))
 
     args = MagicMock()
@@ -474,7 +471,7 @@ def test_sync_cooldown_file_upload_exception(fs, capsys):
 def test_get_cooldown_data_json_error(fs):
     """Test get_cooldown_data with corrupted JSON."""
     fs.create_dir(os.path.expanduser("~"))
-    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    cooldown_path = os.path.expanduser(MOCK_COOLDOWN_PATH)
     fs.create_file(cooldown_path, contents="{invalid_json")
     data = get_cooldown_data()
     assert data == {}
@@ -482,7 +479,7 @@ def test_get_cooldown_data_json_error(fs):
 def test_get_cooldown_data_not_dict(fs):
     """Test get_cooldown_data with valid JSON but not a dict."""
     fs.create_dir(os.path.expanduser("~"))
-    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    cooldown_path = os.path.expanduser(MOCK_COOLDOWN_PATH)
     fs.create_file(cooldown_path, contents="[]")
     data = get_cooldown_data()
     assert data == {}

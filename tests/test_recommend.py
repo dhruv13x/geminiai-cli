@@ -114,7 +114,7 @@ import json
 import os
 from unittest.mock import patch, MagicMock
 from geminiai_cli.recommend import get_recommendation, do_recommend, AccountStatus
-from geminiai_cli.cooldown import COOLDOWN_FILE_PATH
+from geminiai_cli.config import COOLDOWN_FILE
 
 def test_get_recommendation_no_data(fs):
     """Test when no data exists."""
@@ -126,7 +126,7 @@ def test_get_recommendation_no_data(fs):
 def test_get_recommendation_all_locked(fs):
     """Test when all accounts are locked (Cooldown)."""
     fs.create_dir(os.path.expanduser("~"))
-    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE)
     now = datetime.now(timezone.utc)
     recent = (now - timedelta(hours=1)).isoformat()
 
@@ -139,7 +139,7 @@ def test_get_recommendation_all_locked(fs):
 def test_get_recommendation_ready_sort_lru(fs):
     """Test picking the LRU ready account."""
     fs.create_dir(os.path.expanduser("~"))
-    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE)
     now = datetime.now(timezone.utc)
 
     # old1 used 10 days ago
@@ -160,7 +160,7 @@ def test_get_recommendation_ready_sort_lru(fs):
 def test_get_recommendation_never_used_first(fs):
     """Test that never used accounts come before used ones."""
     fs.create_dir(os.path.expanduser("~"))
-    cooldown_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    cooldown_path = os.path.expanduser(COOLDOWN_FILE)
     now = datetime.now(timezone.utc)
     old = (now - timedelta(days=10)).isoformat()
 
