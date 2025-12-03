@@ -11,7 +11,7 @@ import sys
 import time
 from typing import Optional, Tuple
 
-from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR
+from .config import TIMESTAMPED_DIR_REGEX, OLD_CONFIGS_DIR
 import subprocess
 
 from .config import TIMESTAMPED_DIR_REGEX
@@ -20,21 +20,7 @@ def run(cmd: str, check: bool = True, capture: bool = False):
     if capture:
         return subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return subprocess.run(cmd, shell=True, check=check)
-
-def parse_timestamp_from_name(name: str) -> Optional[time.struct_time]:
-    """
-    Parse timestamp prefix like '2025-10-22_042211' into struct_time.
-    Return None if it doesn't match.
-    """
-    m = TIMESTAMPED_DIR_REGEX.match(name)
-    if not m:
-        return None
-    ts_str = m.group(1)  # 'YYYY-MM-DD_HHMMSS'
-    try:
-        return time.strptime(ts_str, "%Y-%m-%d_%H%M%S")
-    except Exception:
-        return None
-
+    
 def find_latest_backup(search_dir: str) -> Optional[str]:
     """
     Search search_dir for directories matching timestamp pattern and return
@@ -63,11 +49,9 @@ def perform_integrity_check(args: argparse.Namespace):
     # Fallback if args missing or None
     if not hasattr(args, 'src') or args.src is None:
         args.src = "~/.gemini"
-    if not hasattr(args, 'search_dir') or args.search_dir is None:
-        args.search_dir = DEFAULT_BACKUP_DIR
-
-    src = os.path.abspath(os.path.expanduser(args.src))
-    search_dir = os.path.abspath(os.path.expanduser(args.search_dir))
+    
+    # This command specifically checks against directory backups, so we hardcode the search path
+    search_dir = os.path.abspath(os.path.expanduser(OLD_CONFIGS_DIR))
 
     if not os.path.exists(src):
         print(f"Source directory does not exist: {src}")
@@ -76,7 +60,7 @@ def perform_integrity_check(args: argparse.Namespace):
     latest_backup = find_latest_backup(search_dir)
 
     if not latest_backup:
-        print(f"No backups found in {search_dir}")
+        print(f"No directory backups found in {search_dir}")
         sys.exit(1)
 
     print(f"Found latest backup: {latest_backup}")
@@ -96,7 +80,8 @@ def perform_integrity_check(args: argparse.Namespace):
 def main():
     p = argparse.ArgumentParser(description="Check integrity of current configuration against the latest backup.")
     p.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
-    p.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for timestamped backups (default ~/geminiai_backups)")
+    # The search directory is now fixed, so we can remove this argument from the standalone runner
+    # p.add_argument("--search-dir", default=OLD_CONFIGS_DIR, help="Directory to search for timestamped backups")
     args = p.parse_args()
     perform_integrity_check(args)
 

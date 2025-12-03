@@ -72,10 +72,9 @@ from rich.panel import Panel
 from rich.align import Align
 
 
-from .config import NEON_CYAN, NEON_YELLOW, NEON_GREEN, NEON_RED, RESET, GEMINIAI_DATA_DIR
+from .config import NEON_CYAN, NEON_YELLOW, NEON_GREEN, NEON_RED, RESET, COOLDOWN_FILE
 
 # File to store cooldown data
-COOLDOWN_FILE_PATH = os.path.join(GEMINIAI_DATA_DIR, "cooldown.json")
 CLOUD_COOLDOWN_FILENAME = "gemini-cooldown.json"
 COOLDOWN_HOURS = 24
 
@@ -95,7 +94,7 @@ def _sync_cooldown_file(direction: str, args):
             return
 
         b2 = B2Manager(key_id, app_key, bucket_name)
-        local_path = os.path.expanduser(COOLDOWN_FILE_PATH)
+        local_path = os.path.expanduser(COOLDOWN_FILE)
 
         if direction == "download":
             cprint(NEON_CYAN, f"Downloading latest cooldown file from B2 bucket '{bucket_name}'...")
@@ -135,7 +134,7 @@ def get_cooldown_data() -> Dict[str, str]:
         A dictionary mapping email addresses to their last switch timestamp (ISO 8601).
         Returns an empty dictionary if the file doesn't exist or is invalid.
     """
-    path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    path = os.path.expanduser(COOLDOWN_FILE)
     if not os.path.exists(path):
         return {}
     try:
@@ -166,7 +165,7 @@ def record_switch(email: str, args=None):
     if args:
         _sync_cooldown_file(direction='download', args=args)
         
-    path = os.path.expanduser(COOLDOWN_FILE_PATH)
+    path = os.path.expanduser(COOLDOWN_FILE)
     # Now, get the most up-to-date data (either from cloud or local).
     data = get_cooldown_data()
     

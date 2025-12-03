@@ -30,7 +30,7 @@ import sys
 import tempfile
 import time
 from typing import Optional, Tuple
-from .config import DEFAULT_BACKUP_DIR, NEON_GREEN, NEON_RED, NEON_YELLOW, NEON_CYAN, RESET, DEFAULT_GEMINI_HOME, TIMESTAMPED_DIR_REGEX, GEMINIAI_ARCHIVE_DIR
+from .config import DEFAULT_BACKUP_DIR, NEON_GREEN, NEON_RED, NEON_YELLOW, NEON_CYAN, RESET, DEFAULT_GEMINI_HOME, TIMESTAMPED_DIR_REGEX, OLD_CONFIGS_DIR, GEMINI_CLI_HOME
 from .b2 import B2Manager
 from .settings import get_setting
 from .credentials import resolve_credentials
@@ -40,9 +40,11 @@ from .reset_helpers import add_24h_cooldown_for_email, sync_resets_with_cloud
 from .recommend import get_recommendation, Recommendation
 from .ui import cprint, NEON_YELLOW, NEON_RED, NEON_GREEN, NEON_CYAN
 
-LOCKFILE = "/var/lock/gemini-backup.lock"
+LOCKFILE = os.path.join(GEMINI_CLI_HOME, ".backup.lock")
 
 def acquire_lock(path: str = LOCKFILE):
+    # Ensure the directory for the lockfile exists
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     fd = open(path, "w+")
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -350,7 +352,7 @@ def perform_restore(args: argparse.Namespace):
             bakname = None
             if os.path.exists(dest) and not args.force:
                 bak_filename = f".gemini.bak-{ts_now}"
-                bakname = os.path.join(GEMINIAI_ARCHIVE_DIR, bak_filename)
+                bakname = os.path.join(OLD_CONFIGS_DIR, bak_filename)
                 
                 if args.dry_run:
                     cprint(NEON_YELLOW, f"[DRY-RUN] Would move existing {dest} to {bakname}")

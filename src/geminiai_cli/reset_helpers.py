@@ -29,10 +29,8 @@ import uuid
 import subprocess
 
 from .ui import banner, cprint
-from .config import NEON_CYAN, NEON_YELLOW, NEON_GREEN, NEON_RED, RESET, GEMINIAI_DATA_DIR
+from .config import NEON_CYAN, NEON_YELLOW, NEON_GREEN, NEON_RED, RESET, RESETS_FILE
 
-# File to store resets
-STORE_FILE = os.path.join(GEMINIAI_DATA_DIR, "resets.json")
 # Keep ISO timestamps in UTC for exact comparisons
 
 # -------------------------
@@ -93,9 +91,9 @@ def get_all_resets() -> List[Dict[str, Any]]:
 
 def _load_store() -> List[Dict[str, Any]]:
     try:
-        if not os.path.exists(STORE_FILE):
+        if not os.path.exists(RESETS_FILE):
             return []
-        with open(STORE_FILE, "r", encoding="utf-8") as f:
+        with open(RESETS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             if not isinstance(data, list):
                 return []
@@ -116,7 +114,8 @@ def _load_store() -> List[Dict[str, Any]]:
 
 def _save_store(entries: List[Dict[str, Any]]):
     try:
-        with open(STORE_FILE, "w", encoding="utf-8", newline="\n") as f:
+        os.makedirs(os.path.dirname(RESETS_FILE), exist_ok=True)
+        with open(RESETS_FILE, "w", encoding="utf-8", newline="\n") as f:
             json.dump(entries, f, ensure_ascii=False, indent=2)
     except Exception as e:
         # non-fatal: just print a message

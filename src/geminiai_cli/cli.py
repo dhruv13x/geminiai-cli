@@ -25,14 +25,21 @@ from .reset_helpers import (
     do_list_resets,
     remove_entry_by_id,
 )
-from .config import NEON_YELLOW, NEON_CYAN, DEFAULT_BACKUP_DIR, DEFAULT_GEMINI_HOME
+from .config import (
+    NEON_YELLOW, 
+    NEON_CYAN, 
+    DEFAULT_BACKUP_DIR, 
+    DEFAULT_GEMINI_HOME,
+    OLD_CONFIGS_DIR,
+    CHAT_HISTORY_BACKUP_PATH
+)
 from .backup import perform_backup
 from .restore import perform_restore
 from .integrity import perform_integrity_check
 from .list_backups import perform_list_backups
 from .check_b2 import perform_check_b2
 from .sync import cloud_sync, local_sync
-from .chat import backup_chat_history, restore_chat_history, cleanup_chat_history, resume_chat, CHAT_HISTORY_BACKUP_PATH
+from .chat import backup_chat_history, restore_chat_history, cleanup_chat_history, resume_chat
 from .project_config import load_project_config, normalize_config_keys
 
 def print_rich_help():
@@ -170,8 +177,8 @@ def main():
     # Backup command
     backup_parser = subparsers.add_parser("backup", help="Backup Gemini configuration and chats (local or Backblaze B2 cloud).")
     backup_parser.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
-    backup_parser.add_argument("--archive-dir", default=DEFAULT_BACKUP_DIR, help="Directory to store tar.gz archives (default ~/geminiai_backups)")
-    backup_parser.add_argument("--dest-dir-parent", default=DEFAULT_BACKUP_DIR, help="Parent directory where timestamped backups are stored (default ~/geminiai_backups)")
+    backup_parser.add_argument("--archive-dir", default=DEFAULT_BACKUP_DIR, help="Directory to store tar.gz archives")
+    backup_parser.add_argument("--dest-dir-parent", default=OLD_CONFIGS_DIR, help="Parent directory where timestamped directory backups are stored")
     backup_parser.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
     backup_parser.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
     backup_parser.add_argument("--bucket", help="B2 Bucket Name")
@@ -182,7 +189,7 @@ def main():
     restore_parser = subparsers.add_parser("restore", help="Restore Gemini configuration from a backup (local or Backblaze B2 cloud).")
     restore_parser.add_argument("--from-dir", help="Directory backup to restore from (preferred)")
     restore_parser.add_argument("--from-archive", help="Tar.gz archive to restore from")
-    restore_parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for timestamped backups when no --from-dir (default ~/geminiai_backups)")
+    restore_parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for timestamped backups when no --from-dir (default: archives dir)")
     restore_parser.add_argument("--dest", default="~/.gemini", help="Destination (default ~/.gemini)")
     restore_parser.add_argument("--force", action="store_true", help="Allow destructive replace without keeping .bak")
     restore_parser.add_argument("--dry-run", action="store_true", help="Do a dry run without destructive actions")
@@ -205,7 +212,6 @@ def main():
     # Integrity check command
     integrity_parser = subparsers.add_parser("check-integrity", help="Check integrity of current configuration against the latest backup.")
     integrity_parser.add_argument("--src", default="~/.gemini", help="Source directory for integrity check (default: ~/.gemini)")
-    integrity_parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Backup directory for integrity check (default: ~/geminiai_backups)")
 
     # List backups command
     list_backups_parser = subparsers.add_parser("list-backups", help="List available backups (local or Backblaze B2 cloud).")

@@ -28,14 +28,16 @@ import sys
 import time
 import tempfile
 from typing import Optional
-from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR
+from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR, OLD_CONFIGS_DIR, GEMINI_CLI_HOME
 from .b2 import B2Manager
 from .settings import get_setting
 from .credentials import resolve_credentials
 
-LOCKFILE = "/var/lock/gemini-backup.lock"
+LOCKFILE = os.path.join(GEMINI_CLI_HOME, ".backup.lock")
 
 def acquire_lock(path: str = LOCKFILE):
+    # Ensure the directory for the lockfile exists
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     fd = open(path, "w+")
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -211,7 +213,7 @@ def main():
     p = argparse.ArgumentParser(description="Safe timestamped backup for ~/.gemini (name: YYYY-MM-DD_HHMMSS-email.gemini)")
     p.add_argument("--src", default="~/.gemini", help="Source gemini dir (default ~/.gemini)")
     p.add_argument("--archive-dir", default=DEFAULT_BACKUP_DIR, help="Directory to store tar.gz archives")
-    p.add_argument("--dest-dir-parent", default=DEFAULT_BACKUP_DIR, help="Parent directory where timestamped backups are stored")
+    p.add_argument("--dest-dir-parent", default=OLD_CONFIGS_DIR, help="Parent directory where timestamped backups are stored")
     p.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
     p.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
     p.add_argument("--bucket", help="B2 Bucket Name")

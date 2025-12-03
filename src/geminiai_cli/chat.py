@@ -1,60 +1,61 @@
 import os
 import shutil
 import subprocess
-from pathlib import Path
 
 from .ui import cprint
-from .config import NEON_GREEN, NEON_RED, NEON_YELLOW, NEON_CYAN, RESET, GEMINIAI_WORK_DIR
+from .config import NEON_GREEN, NEON_RED, NEON_YELLOW, NEON_CYAN, RESET
 
-CHAT_HISTORY_BACKUP_PATH = Path(os.path.join(GEMINIAI_WORK_DIR, "chats"))
-
-def backup_chat_history(backup_path: Path, gemini_home_dir: Path):
+def backup_chat_history(backup_path: str, gemini_home_dir: str):
     """Backup the chat history from the current user's Gemini directory."""
-    source_path = gemini_home_dir / "tmp"
+    source_path = os.path.join(gemini_home_dir, "tmp")
 
-    if not source_path.exists():
+    if not os.path.exists(source_path):
         cprint(NEON_RED, "Gemini chat history directory not found.")
         return
 
-    backup_dir = backup_path / "tmp"
+    backup_dir = os.path.join(backup_path, "tmp")
     os.makedirs(backup_dir, exist_ok=True)
 
     try:
-        for item in source_path.iterdir():
-            if item.is_file():
-                shutil.copy(item, backup_dir)
-            elif item.is_dir():
-                shutil.copytree(item, backup_dir / item.name, dirs_exist_ok=True)
+        for item in os.listdir(source_path):
+            item_path = os.path.join(source_path, item)
+            dest_path = os.path.join(backup_dir, item)
+            if os.path.islink(item_path) or os.path.isfile(item_path):
+                shutil.copy(item_path, dest_path)
+            elif os.path.isdir(item_path):
+                shutil.copytree(item_path, dest_path, dirs_exist_ok=True)
         cprint(NEON_GREEN, f"Chat history successfully backed up to {backup_dir}")
     except Exception as e:
         cprint(NEON_RED, f"Failed to backup chat history: {e}")
 
 
-def restore_chat_history(backup_path: Path, gemini_home_dir: Path):
+def restore_chat_history(backup_path: str, gemini_home_dir: str):
     """Restore the chat history to the current user's Gemini directory."""
-    destination_path = gemini_home_dir / "tmp"
-    backup_dir = backup_path / "tmp"
+    destination_path = os.path.join(gemini_home_dir, "tmp")
+    backup_dir = os.path.join(backup_path, "tmp")
 
-    if not backup_dir.exists():
+    if not os.path.exists(backup_dir):
         cprint(NEON_RED, "Chat history backup directory not found.")
         return
 
     os.makedirs(destination_path, exist_ok=True)
 
     try:
-        for item in backup_dir.iterdir():
-            if item.is_file():
-                shutil.copy(item, destination_path)
-            elif item.is_dir():
-                shutil.copytree(item, destination_path / item.name, dirs_exist_ok=True)
+        for item in os.listdir(backup_dir):
+            item_path = os.path.join(backup_dir, item)
+            dest_path = os.path.join(destination_path, item)
+            if os.path.islink(item_path) or os.path.isfile(item_path):
+                shutil.copy(item_path, dest_path)
+            elif os.path.isdir(item_path):
+                shutil.copytree(item_path, dest_path, dirs_exist_ok=True)
         cprint(NEON_GREEN, "Chat history successfully restored.")
     except Exception as e:
         cprint(NEON_RED, f"Failed to restore chat history: {e}")
 
 
-def cleanup_chat_history(dry_run: bool, force: bool, gemini_home_dir: Path):
+def cleanup_chat_history(dry_run: bool, force: bool, gemini_home_dir: str):
     """Clear temporary chat history and logs."""
-    target_dir = gemini_home_dir / "tmp"
+    target_dir = os.path.join(gemini_home_dir, "tmp")
     
     if not os.path.exists(target_dir):
         cprint(NEON_YELLOW, f"[INFO] Nothing to clean. Directory not found: {target_dir}")

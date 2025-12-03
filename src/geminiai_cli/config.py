@@ -14,16 +14,24 @@ NEON_RED     = "\033[91;1m"
 RESET        = "\033[0m"
 
 # Dynamic Paths
-DEFAULT_GEMINI_HOME = os.path.join(os.path.expanduser("~"), ".gemini")
-GEMINIAI_WORK_DIR = os.path.join(os.path.expanduser("~"), "geminiai")
+GEMINI_CLI_HOME = os.path.join(os.path.expanduser("~"), ".geminiai-cli")
 
-# Sub-directories
-DEFAULT_BACKUP_DIR = os.path.join(GEMINIAI_WORK_DIR, "backups")
-GEMINIAI_DATA_DIR = os.path.join(GEMINIAI_WORK_DIR, "data")
-GEMINIAI_ARCHIVE_DIR = os.path.join(GEMINIAI_WORK_DIR, "archive")
+# Sub-directories and Files
+DEFAULT_BACKUP_DIR = os.path.join(GEMINI_CLI_HOME, "backups")
+CHAT_HISTORY_BACKUP_PATH = os.path.join(GEMINI_CLI_HOME, "chat_backups")
+OLD_CONFIGS_DIR = os.path.join(GEMINI_CLI_HOME, "old_configs")
+
+# Data files
+COOLDOWN_FILE = os.path.join(GEMINI_CLI_HOME, "cooldown.json")
+RESETS_FILE = os.path.join(GEMINI_CLI_HOME, "resets.json")
+HISTORY_FILE = os.path.join(GEMINI_CLI_HOME, "history.json")
+
+
+# Original Gemini directory, for backup/restore source
+DEFAULT_GEMINI_HOME = os.path.join(os.path.expanduser("~"), ".gemini")
 
 # Ensure base directories exist
-for _dir in [GEMINIAI_WORK_DIR, DEFAULT_BACKUP_DIR, GEMINIAI_DATA_DIR, GEMINIAI_ARCHIVE_DIR]:
+for _dir in [GEMINI_CLI_HOME, DEFAULT_BACKUP_DIR, CHAT_HISTORY_BACKUP_PATH, OLD_CONFIGS_DIR]:
     os.makedirs(_dir, exist_ok=True)
 
 LOGIN_URL_PATH = "/sdcard/tools/login_url.txt"

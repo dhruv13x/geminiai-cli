@@ -3,7 +3,7 @@ import json
 import datetime
 from typing import List, Dict, Any
 
-HISTORY_FILE = os.path.expanduser("~/.gemini_history.json")
+from .config import HISTORY_FILE
 
 def record_event(email: str, event_type: str = "switch"):
     """

@@ -12,7 +12,7 @@ import argparse
 from .ui import cprint, NEON_CYAN, NEON_YELLOW, NEON_RED
 from .b2 import B2Manager
 from .settings import get_setting
-from .config import DEFAULT_BACKUP_DIR
+from .config import DEFAULT_BACKUP_DIR, OLD_CONFIGS_DIR
 from .credentials import resolve_credentials
 
 def perform_list_backups(args: argparse.Namespace):
@@ -34,32 +34,43 @@ def perform_list_backups(args: argparse.Namespace):
             sys.exit(1)
 
     else: # List local backups
-        # Fallback if args missing
-        if not hasattr(args, 'search_dir') or args.search_dir is None:
-            args.search_dir = DEFAULT_BACKUP_DIR
+        # --- List Archive Backups ---
+        archive_dir = os.path.expanduser(args.search_dir or DEFAULT_BACKUP_DIR)
+        if not os.path.isdir(archive_dir):
+            cprint(NEON_YELLOW, f"Archive backup directory not found: {archive_dir}")
+        else:
+            try:
+                archives = [f for f in os.listdir(archive_dir) if os.path.isfile(os.path.join(archive_dir, f)) and f.endswith('.gemini.tar.gz')]
+                if not archives:
+                    cprint(NEON_YELLOW, f"No archive backups (*.tar.gz) found in {archive_dir}")
+                else:
+                    cprint(NEON_CYAN, f"Available archive backups in {archive_dir}:")
+                    for backup in sorted(archives):
+                        print(f"  {backup}")
+            except OSError as e:
+                cprint(NEON_RED, f"Error reading archive backup directory: {e}")
+        
+        print() # Add a space between sections
 
-        backup_dir = os.path.expanduser(args.search_dir)
-
-        if not os.path.isdir(backup_dir):
-            cprint(NEON_YELLOW, f"Backup directory not found: {backup_dir}")
-            return
-
-        try:
-            backups = [f for f in os.listdir(backup_dir) if os.path.isfile(os.path.join(backup_dir, f)) and f.endswith(('.gemini.tar.gz', '.gemini'))]
-            if not backups:
-                cprint(NEON_YELLOW, f"No backups found in {backup_dir}")
-                return
-
-            cprint(NEON_CYAN, f"Available backups in {backup_dir}:")
-            for backup in sorted(backups):
-                print(f"  {backup}")
-
-        except OSError as e:
-            cprint(NEON_RED, f"Error reading backup directory: {e}")
+        # --- List Directory Backups ---
+        dir_backup_path = os.path.expanduser(OLD_CONFIGS_DIR)
+        if not os.path.isdir(dir_backup_path):
+            cprint(NEON_YELLOW, f"Directory backup path not found: {dir_backup_path}")
+        else:
+            try:
+                dir_backups = [d for d in os.listdir(dir_backup_path) if os.path.isdir(os.path.join(dir_backup_path, d)) and '.gemini' in d]
+                if not dir_backups:
+                    cprint(NEON_YELLOW, f"No directory backups found in {dir_backup_path}")
+                else:
+                    cprint(NEON_CYAN, f"Available directory backups in {dir_backup_path}:")
+                    for backup in sorted(dir_backups):
+                        print(f"  {backup}")
+            except OSError as e:
+                cprint(NEON_RED, f"Error reading directory backup path: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="List available Gemini backups.")
-    parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help="Directory to search for backups (default ~/geminiai_backups)")
+    parser.add_argument("--search-dir", default=DEFAULT_BACKUP_DIR, help=f"Directory to search for archive backups (default {DEFAULT_BACKUP_DIR})")
     parser.add_argument("--cloud", action="store_true", help="List backups from Cloud (B2)")
     parser.add_argument("--bucket", help="B2 Bucket Name")
     parser.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")
