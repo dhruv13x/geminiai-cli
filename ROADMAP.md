@@ -17,8 +17,9 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [x] **Automated Updates**: Self-updating mechanism to keep the CLI current.
 - [x] **Backup Retention Management**: Automated pruning of old backups (`prune` command).
 - [x] **System Diagnostic Tool**: Self-check health reporter (`doctor` command).
-- [x] **Cleanup Tool**: Clear temporary chat history and logs (`cleanup` command).
+- [x] **Cleanup Tool**: Clear temporary chat history and logs (`chat cleanup` command).
 - [x] **Configuration Management**: Manage persistent settings (`config` command).
+- [ ] **Encrypted Backups**: Option to encrypt backup archives (`.tar.gz.gpg`) for enhanced security of sensitive session tokens.
 - [ ] **Interactive Configuration Wizard**: A guided, interactive setup process for first-time users (replacing manual command-line config).
 - [ ] **Comprehensive Documentation**: Complete API references, man pages, and a dedicated documentation site.
 
@@ -51,6 +52,7 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [ ] **Python SDK**: A distribute-able Python library (`import geminiai`) allowing programmatic control of the tool.
 - [ ] **CI/CD Integration**: Official GitHub Actions and GitLab CI runners for automated backup workflows in pipelines.
 - [ ] **Plugin System**: A hooks-based architecture allowing users to run custom scripts before/after backups (e.g., database dumps).
+- [ ] **Docker Image**: Official Docker container for easy deployment in self-hosted environments.
 
 ---
 
@@ -74,3 +76,4 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [ ] **Gamification**: Achievements and stats tracking for uptime and successful backups.
 - [ ] **Voice Control Integration**: Execute backups via voice commands.
 - [ ] **Chaos Monkey Mode**: A testing mode that randomly simulates failures (network drops, disk full) to verify system resilience.
+- [ ] **Persistent TUI Dashboard**: A full-screen, responsive terminal application (like `htop`) for real-time monitoring and management.
