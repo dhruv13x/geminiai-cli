@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.align import Align
 from rich.text import Text
+from rich.table import Table
 
 from .config import NEON_GREEN, NEON_CYAN, NEON_YELLOW, NEON_MAGENTA, NEON_RED, RESET
 
@@ -53,3 +54,57 @@ def banner():
     panel = Panel(Align.center(title), style="bold magenta", expand=False)
     console.print(panel)
     console.print("") # Newline
+
+def print_rich_help():
+    """Prints a beautiful Rich-formatted help screen for the MAIN command."""
+    # Note: Avoid importing print_logo here to prevent circular imports if possible,
+    # or import inside function.
+
+    console.print("[bold white]Usage:[/] [bold cyan]geminiai[/] [dim][OPTIONS][/] [bold magenta]COMMAND[/] [dim][ARGS]...[/]\n")
+
+    # Commands Table
+    cmd_table = Table(show_header=False, box=None, padding=(0, 2))
+    cmd_table.add_column("Command", style="bold cyan", width=20)
+    cmd_table.add_column("Description", style="white")
+
+    commands = [
+        ("backup", "Backup Gemini configuration and chats"),
+        ("restore", "Restore Gemini configuration from a backup"),
+        ("chat", "Manage chat history"),
+        ("check-integrity", "Check integrity of current configuration"),
+        ("list-backups", "List available backups"),
+        ("prune", "Prune old backups (local or cloud)"),
+        ("check-b2", "Verify Backblaze B2 credentials"),
+        ("sync", "Sync backups with Cloud (push/pull)"),
+        ("config", "Manage persistent configuration"),
+        ("doctor", "Run system diagnostic check"),
+        ("resets", "Manage Gemini free tier reset schedules"),
+        ("cooldown", "Show account cooldown status"),
+        ("recommend", "Get the next best account recommendation"),
+        ("stats", "Show usage statistics (last 7 days)"),
+    ]
+
+    for cmd, desc in commands:
+        cmd_table.add_row(cmd, desc)
+
+    console.print(Panel(cmd_table, title="[bold magenta]Available Commands[/]", border_style="cyan"))
+
+    # Options Table
+    opt_table = Table(show_header=False, box=None, padding=(0, 2))
+    opt_table.add_column("Option", style="bold yellow", width=20)
+    opt_table.add_column("Description", style="white")
+
+    options = [
+        ("--login", "Login to Gemini CLI"),
+        ("--logout", "Logout from Gemini CLI"),
+        ("--session", "Show current active session"),
+        ("--update", "Reinstall / update Gemini CLI"),
+        ("--check-update", "Check for updates"),
+        ("--help, -h", "Show this message and exit"),
+    ]
+
+    for opt, desc in options:
+        opt_table.add_row(opt, desc)
+
+    console.print(Panel(opt_table, title="[bold yellow]Options[/]", border_style="green"))
+    sys.exit(0)

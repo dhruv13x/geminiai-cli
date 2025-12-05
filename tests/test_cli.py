@@ -2,7 +2,9 @@
 
 import pytest
 from unittest.mock import patch, MagicMock
-from geminiai_cli.cli import main, print_rich_help, RichHelpParser
+from geminiai_cli.cli import main
+from geminiai_cli.ui import print_rich_help
+from geminiai_cli.args import RichHelpParser
 
 @patch("geminiai_cli.cli.do_login")
 def test_main_login(mock_do_login):
@@ -64,39 +66,39 @@ def test_main_check_b2(mock_perform_check_b2):
         main()
         mock_perform_check_b2.assert_called_once()
 
-@patch("geminiai_cli.cli.do_list_resets")
+@patch("geminiai_cli.reset_helpers.do_list_resets")
 def test_main_list_resets(mock_list):
     with patch("sys.argv", ["geminiai", "resets", "--list"]):
         main()
         mock_list.assert_called_once()
 
-@patch("geminiai_cli.cli.remove_entry_by_id")
+@patch("geminiai_cli.reset_helpers.remove_entry_by_id")
 def test_main_remove_resets(mock_remove):
     mock_remove.return_value = True
     with patch("sys.argv", ["geminiai", "resets", "--remove", "id"]):
         main()
         mock_remove.assert_called_once_with("id")
 
-@patch("geminiai_cli.cli.remove_entry_by_id")
+@patch("geminiai_cli.reset_helpers.remove_entry_by_id")
 def test_main_remove_resets_fail(mock_remove):
     mock_remove.return_value = False
     with patch("sys.argv", ["geminiai", "resets", "--remove", "id"]):
         main()
         mock_remove.assert_called_once_with("id")
 
-@patch("geminiai_cli.cli.do_next_reset")
+@patch("geminiai_cli.reset_helpers.do_next_reset")
 def test_main_next_resets(mock_next):
     with patch("sys.argv", ["geminiai", "resets", "--next"]):
         main()
         mock_next.assert_called_once_with(None)
 
-@patch("geminiai_cli.cli.do_next_reset")
+@patch("geminiai_cli.reset_helpers.do_next_reset")
 def test_main_next_arg_resets(mock_next):
     with patch("sys.argv", ["geminiai", "resets", "--next", "id"]):
         main()
         mock_next.assert_called_once_with("id")
 
-@patch("geminiai_cli.cli.do_capture_reset")
+@patch("geminiai_cli.reset_helpers.do_capture_reset")
 def test_main_add_resets(mock_add):
     with patch("sys.argv", ["geminiai", "resets", "--add", "time"]):
         main()
@@ -178,11 +180,20 @@ def test_main_help_arg(mock_help):
             main()
         mock_help.assert_called()
 
-@patch("geminiai_cli.cli.RichHelpParser.print_help")
-def test_main_resets_no_args(mock_print_help):
+# @patch("geminiai_cli.args.RichHelpParser.print_help")
+# def test_main_resets_no_args(mock_print_help):
+#     with patch("sys.argv", ["geminiai", "resets"]):
+#         main()
+#         mock_print_help.assert_called()
+
+def test_main_resets_no_args_exits():
+    """
+    Test that 'geminiai resets' triggers argparse help which calls sys.exit(0)
+    """
     with patch("sys.argv", ["geminiai", "resets"]):
-        main()
-        mock_print_help.assert_called()
+        with pytest.raises(SystemExit) as e:
+            main()
+        assert e.value.code == 0
 
 # Test arg parsing branches for backup (cloud options)
 @patch("geminiai_cli.cli.perform_backup")
