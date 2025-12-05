@@ -60,6 +60,9 @@ Get up and running immediately. You can use `geminiai`, `geminiai-cli`, or the s
 # Run a local backup
 geminiai backup
 
+# Sync your backups to the cloud (Push to B2)
+geminiai sync push
+
 # Get the next best account recommendation
 ga recommend
 
@@ -73,17 +76,16 @@ geminiai --help
 ## ✨ Key Features
 
 - **🛡️ God Level Backups**: Create local or **Cloud-based (Backblaze B2)** backups of your Gemini configuration and chats.
-- **💬 Chat Management**: Backup, restore, and resume chat sessions.
+- **🔄 Unified Cloud Sync**: Seamlessly `push` and `pull` backups between your local machine and the cloud.
+- **💬 Chat Management**: Backup, restore, resume, and **cleanup** chat sessions and logs.
 - **🧠 Smart Recommendation**: Automatically switch to the best available account based on cooldowns and usage history.
-- **☁️ Cloud Sync**: Seamlessly synchronize your backups between your local machine and the cloud.
 - **⏱️ Resets Management**: Track your Gemini free tier reset schedules to maximize usage without hitting limits.
 - **❄️ Cooldown Tracking**: Monitor account cooldown status to avoid rate limiting.
 - **📊 Visual Usage Stats**: Visualize usage patterns over the last 7 days.
 - **🩺 Doctor Mode**: Run a system diagnostic check to identify and fix issues.
 - **🔐 Credential Management**: Securely handle Backblaze B2 credentials via CLI, Environment Variables, or Doppler.
-- **🧹 Cleanup & Pruning**: Automatically prune old backups and clear temporary files to save space.
-- **🔄 Automated Updates**: Built-in self-update mechanism.
 - **⚡ Integrity Checks**: Verify your configuration integrity against backups.
+- **🔄 Automated Updates**: Built-in self-update mechanism.
 
 ## ⚙️ Configuration & Advanced Usage
 
@@ -104,11 +106,10 @@ You can configure credentials using `.env` files, environment variables, or Dopp
 | :--- | :--- | :--- |
 | `backup` | Backup configuration and chats. | `--src`, `--archive-dir`, `--cloud`, `--bucket`, `--dry-run` |
 | `restore` | Restore configuration from backup. | `--from-dir`, `--from-archive`, `--cloud`, `--force`, `--auto` |
-| `chat` | Manage chat history. | `backup`, `restore`, `cleanup`, `resume` |
-| `cloud-sync` | Sync local backups to Cloud (B2). | `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key` |
-| `local-sync` | Sync Cloud backups to local. | `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key` |
+| `sync` | Sync backups with Cloud (B2). | `push`, `pull`, `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key` |
+| `chat` | Manage chat history. | `backup`, `restore`, `cleanup` (w/ `--force`), `resume` |
 | `list-backups` | List available backups. | `--cloud`, `--search-dir`, `--bucket` |
-| `prune` | Delete old backups. | `--keep`, `--backup-dir`, `--cloud`, `--cloud-only` |
+| `prune` | Delete old backups. | `--keep`, `--cloud`, `--cloud-only`, `--dry-run` |
 | `check-integrity` | Verify configuration integrity. | `--src`, `--search-dir` |
 | `check-b2` | Verify B2 credentials. | `--bucket`, `--b2-id`, `--b2-key` |
 | `config` | Manage persistent settings. | `set`, `get`, `list`, `unset`, `--force` |
@@ -116,7 +117,6 @@ You can configure credentials using `.env` files, environment variables, or Dopp
 | `cooldown` | Show account cooldown status. | `--cloud`, `--remove`, `--bucket` |
 | `recommend` | Suggest next best account. | *(No arguments)* |
 | `stats` | Show usage statistics. | *(No arguments)* |
-| `cleanup` | Clear temp files and logs. | `--force`, `--dry-run` |
 | `doctor` | Run system diagnostics. | *(No arguments)* |
 
 ### Global Options
@@ -139,14 +139,15 @@ src/geminiai_cli/
 ├── backup.py          # Backup Logic
 ├── restore.py         # Restore Logic
 ├── chat.py            # Chat History Management
+├── sync.py            # Cloud/Local Sync Logic (Push/Pull)
 ├── recommend.py       # Smart Account Recommendation
 ├── stats.py           # Visual Usage Statistics
-├── sync.py            # Cloud/Local Sync Logic
 ├── b2.py              # Backblaze B2 Integration
-├── credentials.py     # Credential Management
+├── integrity.py       # Integrity Check Logic
+├── prune.py           # Backup Pruning Logic
 ├── doctor.py          # System Diagnostics
 ├── cooldown.py        # Cooldown Tracking
-└── resets_helpers.py  # Reset Schedule Management
+└── reset_helpers.py   # Reset Schedule Management
 ```
 
 ## 🗺️ Roadmap
@@ -154,10 +155,11 @@ src/geminiai_cli/
 ### ✅ Completed
 - **Account Management**: Seamless login/logout.
 - **Cloud Backups**: Backblaze B2 integration.
+- **Unified Sync**: Push and Pull backups seamlessly.
 - **Resets & Cooldowns**: Smart rate limit management.
 - **Automated Updates**: Self-updating mechanism.
 - **Health Checks**: Doctor mode for diagnostics.
-- **Chat Management**: Backup and resume capabilities.
+- **Chat Management**: Backup, restore, and cleanup capabilities.
 - **Smart Recommendations**: Intelligent account switching.
 
 ### 🚧 Upcoming
