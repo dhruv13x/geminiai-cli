@@ -8,17 +8,22 @@ import os
 from .settings import set_setting, get_setting, list_settings, remove_setting, CONFIG_FILE
 from .ui import cprint
 from .config import NEON_CYAN, NEON_GREEN, NEON_YELLOW, NEON_RED, RESET
+from .wizard import run_wizard
 
 def do_config(args):
     """
     Handle config command.
-    args.config_action: 'set', 'get', 'list', 'unset'
+    args.config_action: 'set', 'get', 'list', 'unset', 'init'
     args.key: key (optional for list)
     args.value: value (optional for get/list/unset)
     args.force: boolean (optional)
     """
     action = args.config_action
     
+    if args.init or action == "init":
+        run_wizard()
+        return
+
     if action == "list":
         s = list_settings()
         if not s:

@@ -21,7 +21,7 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [x] **Cleanup Tool**: Clear temporary chat history and logs (`chat cleanup` command).
 - [x] **Configuration Management**: Manage persistent settings (`config` command).
 - [x] **Encrypted Backups**: Option to encrypt backup archives (`.tar.gz.gpg`) using GPG.
-- [ ] **Interactive Configuration Wizard**: A guided, interactive setup process for first-time users (replacing manual command-line config).
+- [x] **Interactive Configuration Wizard**: A guided, interactive setup process for first-time users (replacing manual command-line config).
 - [ ] **Comprehensive Documentation**: Complete API references, man pages, and a dedicated documentation site.
 
 ---

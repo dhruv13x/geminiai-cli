@@ -163,10 +163,11 @@ def get_parser() -> argparse.ArgumentParser:
 
     # Config command
     config_parser = subparsers.add_parser("config", help="Manage persistent configuration.")
-    config_parser.add_argument("config_action", choices=["set", "get", "list", "unset"], help="Action to perform")
+    config_parser.add_argument("config_action", choices=["set", "get", "list", "unset", "init"], nargs="?", help="Action to perform")
     config_parser.add_argument("key", nargs="?", help="Setting key")
     config_parser.add_argument("value", nargs="?", help="Setting value")
     config_parser.add_argument("--force", action="store_true", help="Force save sensitive keys without confirmation (automation mode)")
+    config_parser.add_argument("--init", action="store_true", help="Run the interactive configuration wizard")
 
     # Resets command (New subcommand for reset management)
     resets_parser = subparsers.add_parser("resets", help="Manage Gemini free tier reset schedules.")
