@@ -17,6 +17,7 @@ from .update import do_update, do_check_update
 from .recommend import do_recommend
 from .stats import do_stats
 from .reset_helpers import handle_resets_command
+from .profile import do_profile
 from .config import (
     DEFAULT_GEMINI_HOME,
     CHAT_HISTORY_BACKUP_PATH
@@ -69,6 +70,8 @@ def main():
         do_doctor()
     elif args.command == "prune":
         do_prune(args)
+    elif args.command == "profile":
+        do_profile(args)
     elif args.command == "cooldown":
         if args.remove:
             do_remove_account(args.remove[0], args)

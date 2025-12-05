@@ -82,6 +82,7 @@ geminiai --help
 - **⏱️ Resets Management**: Track your Gemini free tier reset schedules to maximize usage without hitting limits.
 - **❄️ Cooldown Tracking**: Monitor account cooldown status to avoid rate limiting.
 - **📊 Visual Usage Stats**: Visualize usage patterns over the last 7 days.
+- **📦 Profile Portability**: Easily export and import your entire configuration and history (`ga profile export/import`).
 - **🩺 Doctor Mode**: Run a system diagnostic check to identify and fix issues.
 - **🔐 Credential Management**: Securely handle Backblaze B2 credentials via CLI, Environment Variables, or Doppler.
 - **⚡ Integrity Checks**: Verify your configuration integrity against backups.
@@ -118,6 +119,7 @@ You can configure credentials using `.env` files, environment variables, or Dopp
 | `cooldown` | Show account cooldown status. | `--cloud`, `--remove`, `--bucket` |
 | `recommend` | Suggest next best account. | *(No arguments)* |
 | `stats` | Show usage statistics. | *(No arguments)* |
+| `profile` | Export/Import profiles. | `export`, `import`, `--force` |
 | `doctor` | Run system diagnostics. | *(No arguments)* |
 
 ### Global Options

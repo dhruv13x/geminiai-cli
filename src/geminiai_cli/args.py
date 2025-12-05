@@ -205,4 +205,17 @@ def get_parser() -> argparse.ArgumentParser:
     # Stats command
     stats_parser = subparsers.add_parser("stats", aliases=["usage"], help="Show usage statistics (last 7 days).")
 
+    # Profile command
+    profile_parser = subparsers.add_parser("profile", help="Manage configuration profiles.")
+    profile_subparsers = profile_parser.add_subparsers(dest="profile_command", help="Profile commands")
+
+    # Profile Export
+    profile_export = profile_subparsers.add_parser("export", help="Export profile to a zip file.")
+    profile_export.add_argument("file", help="Output zip filename")
+
+    # Profile Import
+    profile_import = profile_subparsers.add_parser("import", help="Import profile from a zip file.")
+    profile_import.add_argument("file", help="Input zip filename")
+    profile_import.add_argument("--force", action="store_true", help="Overwrite existing files without confirmation")
+
     return parser
