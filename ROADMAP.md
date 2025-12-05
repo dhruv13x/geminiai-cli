@@ -1,4 +1,4 @@
-# 🗺️ Visionary Roadmap
+# 🗺️ Visionary Roadmap: Gemini CLI Helper
 
 This document outlines the strategic vision for the **Gemini CLI Helper**, categorizing features from foundational essentials to ambitious, "God Level" capabilities. Our goal is to evolve this tool into an indispensable, intelligent automation platform for the developer ecosystem.
 
@@ -13,13 +13,14 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [x] **Account Management**: Seamlessly log in, log out, and view session details (`--login`, `--logout`, `--session`).
 - [x] **Local Backups**: Robust local backup and restore functionality (`backup`, `restore`).
 - [x] **Cloud Backups (B2 Integration)**: Native support for Backblaze B2 cloud storage.
+- [x] **Unified Cloud Sync**: Seamlessly `push` and `pull` backups between local and cloud (`sync`).
 - [x] **Rate Limit Tracking**: Monitor and manage API rate limits (`resets` command).
-- [x] **Automated Updates**: Self-updating mechanism to keep the CLI current.
+- [x] **Automated Updates**: Self-updating mechanism to keep the CLI current (`--update`).
 - [x] **Backup Retention Management**: Automated pruning of old backups (`prune` command).
 - [x] **System Diagnostic Tool**: Self-check health reporter (`doctor` command).
 - [x] **Cleanup Tool**: Clear temporary chat history and logs (`chat cleanup` command).
 - [x] **Configuration Management**: Manage persistent settings (`config` command).
-- [x] **Encrypted Backups**: Option to encrypt backup archives (`.tar.gz.gpg`) for enhanced security of sensitive session tokens.
+- [x] **Encrypted Backups**: Option to encrypt backup archives (`.tar.gz.gpg`) using GPG.
 - [ ] **Interactive Configuration Wizard**: A guided, interactive setup process for first-time users (replacing manual command-line config).
 - [ ] **Comprehensive Documentation**: Complete API references, man pages, and a dedicated documentation site.
 
@@ -32,7 +33,7 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 
 - [x] **Smart Account Recommendation**: "Next Best Account" logic to suggest the most rested account (Green & Least Recently Used).
 - [x] **Auto-Switching**: Automatically restore the best available account (`ga restore --auto`).
-- [x] **Visual Usage Graphs**: ASCII bar charts in the terminal to visualize usage patterns over the last 7 days.
+- [x] **Visual Usage Graphs**: ASCII bar charts in the terminal to visualize usage patterns over the last 7 days (`stats`).
 - [ ] **Profile Portability**: Export/Import profiles (`ga profile export/import`) for easy migration between machines.
 - [ ] **Multi-Cloud Support**: Expand cloud storage support to AWS S3, Google Cloud Storage, and Azure Blob Storage.
 - [ ] **Configuration Profiles**: Support for named profiles (e.g., `--profile work`, `--profile personal`) to easily switch contexts.
@@ -64,8 +65,9 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [ ] **AI-Driven Anomaly Detection**: Machine learning models to analyze backup metadata and alert on unusual patterns (e.g., sudden size drops indicating corruption).
 - [ ] **Self-Healing Infrastructure**: Capabilities to automatically detect corrupted configurations or permissions and attempt auto-remediation.
 - [ ] **Natural Language Command Interface**: Control the CLI using natural language (e.g., "Gemini, restore yesterday's backup to the staging environment").
-- [ ] **Decentralized Storage**: Integration with IPFS or Filecoin for immutable, decentralized backup storage.
-- [ ] **Predictive Rate Limiting**: AI prediction of rate limit exhaustion based on usage history, proactively pausing operations.
+- [ ] **Decentralized Storage (Web3)**: Integration with IPFS or Filecoin for immutable, decentralized backup storage.
+- [ ] **Predictive Rate Limiting**: AI prediction of rate limit exhaustion based on usage history, proactively pausing operations before limits are hit.
+- [ ] **Context-Aware Restoration**: Intelligent restoration that suggests specific backup snapshots based on the current Git branch or project state.
 
 ---
 
@@ -73,7 +75,9 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 
 **Focus**: Wild, creative, experimental ideas that set the project apart.
 
-- [ ] **Gamification**: Achievements and stats tracking for uptime and successful backups.
+- [ ] **Federated Backup Swarm**: Peer-to-peer encrypted backup sharing between your own trusted devices without a central cloud.
+- [ ] **Gamification**: Achievements and stats tracking for uptime, successful backups, and streak maintenance.
 - [ ] **Voice Control Integration**: Execute backups via voice commands.
 - [ ] **Chaos Monkey Mode**: A testing mode that randomly simulates failures (network drops, disk full) to verify system resilience.
 - [ ] **Persistent TUI Dashboard**: A full-screen, responsive terminal application (like `htop`) for real-time monitoring and management.
+- [ ] **Quantum-Resistant Encryption**: Future-proof security using post-quantum cryptography algorithms.
