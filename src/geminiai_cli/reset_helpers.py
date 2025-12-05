@@ -553,6 +553,34 @@ def sync_resets_with_cloud(b2_manager):
     except Exception as e:
         cprint(NEON_RED, f"[ERROR] Failed to upload cooldowns: {e}")
 
+def handle_resets_command(args) -> bool:
+    """
+    Handles the 'resets' subcommand.
+    Returns True if an action was taken, False if help should be shown.
+    """
+    if args.list:
+        do_list_resets()
+        return True
+    elif args.remove is not None:
+        key = args.remove[0]
+        ok = remove_entry_by_id(key)
+        if ok:
+            cprint(NEON_CYAN, f"[OK] Removed entries matching: {key}")
+        else:
+            cprint(NEON_YELLOW, f"[WARN] No entries matched: {key}")
+        return True
+    elif args.next is not None:
+        ident = args.next
+        if ident == "*ALL*":
+            ident = None
+        do_next_reset(ident)
+        return True
+    elif args.add is not None:
+        do_capture_reset(args.add)
+        return True
+
+    return False
+
 # ------------------------
 # End of file
 # ------------------------
