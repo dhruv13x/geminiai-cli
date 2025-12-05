@@ -86,6 +86,7 @@ geminiai --help
 - **🔐 Credential Management**: Securely handle Backblaze B2 credentials via CLI, Environment Variables, or Doppler.
 - **⚡ Integrity Checks**: Verify your configuration integrity against backups.
 - **🔄 Automated Updates**: Built-in self-update mechanism.
+- **🧙 Interactive Wizard**: Guided setup process for easy configuration (`config --init`).
 
 ## ⚙️ Configuration & Advanced Usage
 
@@ -161,10 +162,10 @@ src/geminiai_cli/
 - **Health Checks**: Doctor mode for diagnostics.
 - **Chat Management**: Backup, restore, and cleanup capabilities.
 - **Smart Recommendations**: Intelligent account switching.
+- **Interactive Config**: Wizard-style setup.
 
 ### 🚧 Upcoming
 - **Multi-Cloud Support**: AWS S3, Google Cloud Storage.
-- **Interactive Config**: Wizard-style setup.
 - **Enhanced TUI**: Rich dashboards and real-time progress bars.
 - **Webhooks**: Integration with Slack/Discord for alerts.
 - **AI-Driven Anomaly Detection**: Smart backup analysis.
