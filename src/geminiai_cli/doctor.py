@@ -26,7 +26,7 @@ def do_doctor():
     table.add_column("Details", style="dim")
 
     # Tools
-    tools = ["gemini", "tar", "diff", "npm"]
+    tools = ["gemini", "tar", "diff", "npm", "gpg"]
     for tool in tools:
         path = shutil.which(tool)
         if path:

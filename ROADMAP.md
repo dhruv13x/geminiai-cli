@@ -19,7 +19,7 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [x] **System Diagnostic Tool**: Self-check health reporter (`doctor` command).
 - [x] **Cleanup Tool**: Clear temporary chat history and logs (`chat cleanup` command).
 - [x] **Configuration Management**: Manage persistent settings (`config` command).
-- [ ] **Encrypted Backups**: Option to encrypt backup archives (`.tar.gz.gpg`) for enhanced security of sensitive session tokens.
+- [x] **Encrypted Backups**: Option to encrypt backup archives (`.tar.gz.gpg`) for enhanced security of sensitive session tokens.
 - [ ] **Interactive Configuration Wizard**: A guided, interactive setup process for first-time users (replacing manual command-line config).
 - [ ] **Comprehensive Documentation**: Complete API references, man pages, and a dedicated documentation site.
 

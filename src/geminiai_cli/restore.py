@@ -75,9 +75,12 @@ def parse_timestamp_from_name(name: str) -> Optional[time.struct_time]:
     except Exception:
         return None
 
+def is_backup_archive(filename: str) -> bool:
+    return filename.endswith(".gemini.tar.gz") or filename.endswith(".gemini.tar.gz.gpg")
+
 def find_oldest_archive_backup(search_dir: str) -> Optional[str]:
     """
-    Search search_dir for backup archives (*.gemini.tar.gz) matching the
+    Search search_dir for backup archives (*.gemini.tar.gz or *.gpg) matching the
     timestamp pattern and return the full path of the oldest backup (earliest
     timestamp). If none found, return None.
     """
@@ -86,7 +89,7 @@ def find_oldest_archive_backup(search_dir: str) -> Optional[str]:
         for entry in os.listdir(search_dir):
             full_path = os.path.join(search_dir, entry)
             # We are now looking for archive files, not directories
-            if not (os.path.isfile(full_path) and entry.endswith(".gemini.tar.gz")):
+            if not (os.path.isfile(full_path) and is_backup_archive(entry)):
                 continue
 
             # The name for parsing is the filename itself
@@ -106,31 +109,32 @@ def find_oldest_archive_backup(search_dir: str) -> Optional[str]:
 
 def find_latest_archive_backup_for_email(search_dir: str, email: str) -> Optional[str]:
     """
-    Search search_dir for backup archives (*.gemini.tar.gz) matching the
+    Search search_dir for backup archives matching the
     timestamp pattern AND the email. Returns the LATEST (newest) backup.
     """
     candidates: list[Tuple[time.struct_time, str]] = []
     try:
         for entry in os.listdir(search_dir):
             full_path = os.path.join(search_dir, entry)
-            if not (os.path.isfile(full_path) and entry.endswith(".gemini.tar.gz")):
+            if not (os.path.isfile(full_path) and is_backup_archive(entry)):
                 continue
 
             # Robust matching: Parse filename to extract email
-            # Format: YYYY-MM-DD_HHMMSS-<email>.gemini.tar.gz
-            # Use regex from config if possible, or just look for the email suffix pattern.
-            # Filename: {timestamp_str}-{email}.gemini.tar.gz
-            # where timestamp_str is YYYY-MM-DD_HHMMSS (17 chars)
+            # Format: YYYY-MM-DD_HHMMSS-<email>.gemini.tar.gz[.gpg]
 
             # Extract suffix after first 18 chars (timestamp + hyphen)
             if len(entry) <= 18:
                 continue
 
-            suffix = entry[18:] # <email>.gemini.tar.gz
-            if not suffix.endswith(".gemini.tar.gz"):
-                continue
+            suffix = entry[18:] # <email>.gemini.tar.gz[.gpg]
 
-            email_in_file = suffix[:-14] # remove .gemini.tar.gz
+            email_in_file = None
+            if suffix.endswith(".gemini.tar.gz"):
+                 email_in_file = suffix[:-14]
+            elif suffix.endswith(".gemini.tar.gz.gpg"):
+                 email_in_file = suffix[:-18]
+            else:
+                continue
 
             if email_in_file != email:
                 continue
@@ -151,8 +155,49 @@ def find_latest_archive_backup_for_email(search_dir: str, email: str) -> Optiona
 
 def extract_archive(archive_path: str, extract_to: str):
     os.makedirs(extract_to, exist_ok=True)
-    cmd = f"tar -C {shlex_quote(extract_to)} -xzf {shlex_quote(archive_path)}"
-    run(cmd)
+
+    # Handle Decryption if .gpg
+    final_archive_path = archive_path
+    decrypted_tmp_path = None
+
+    if archive_path.endswith(".gpg"):
+        print(f"Detected encrypted backup: {archive_path}")
+        passphrase = os.environ.get("GEMINI_BACKUP_PASSWORD")
+        if not passphrase:
+            import getpass
+            passphrase = getpass.getpass("Enter passphrase to decrypt backup: ")
+
+        if not passphrase:
+            print("Error: Passphrase required for decryption.")
+            sys.exit(1)
+
+        decrypted_tmp_path = archive_path[:-4] # Remove .gpg
+        if os.path.exists(decrypted_tmp_path):
+             decrypted_tmp_path += f".decrypted-{int(time.time())}"
+
+        # gpg --decrypt --batch --passphrase-fd 0 --output <out> <in>
+        gpg_cmd = [
+            "gpg", "--decrypt", "--batch", "--yes", "--passphrase-fd", "0",
+            "--output", decrypted_tmp_path, archive_path
+        ]
+
+        print("Decrypting...")
+        try:
+             proc = subprocess.run(gpg_cmd, input=passphrase.encode(), check=False)
+             if proc.returncode != 0:
+                 print("Error: GPG decryption failed. Incorrect password?")
+                 sys.exit(1)
+             final_archive_path = decrypted_tmp_path
+        except FileNotFoundError:
+             print("Error: 'gpg' command not found.")
+             sys.exit(1)
+
+    try:
+        cmd = f"tar -C {shlex_quote(extract_to)} -xzf {shlex_quote(final_archive_path)}"
+        run(cmd)
+    finally:
+        if decrypted_tmp_path and os.path.exists(decrypted_tmp_path):
+            os.remove(decrypted_tmp_path)
 
 def perform_restore(args: argparse.Namespace):
     email_before = get_active_session()
@@ -183,7 +228,7 @@ def perform_restore(args: argparse.Namespace):
         # b2sdk list_file_versions returns a generator of FileVersion objects
         all_files = []
         for file_version, _ in b2.list_backups():
-            if file_version.file_name.endswith(".gemini.tar.gz"):
+            if is_backup_archive(file_version.file_name):
                 ts = parse_timestamp_from_name(file_version.file_name)
                 if ts:
                     all_files.append((ts, file_version.file_name))

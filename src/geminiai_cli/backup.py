@@ -138,8 +138,47 @@ def perform_backup(args: argparse.Namespace):
             ensure_dir(archive_dir)
             tar_cmd = f"tar -C {shlex_quote(src)} -czf {shlex_quote(archive_path)} ."
             run(tar_cmd)
+
+            # --- ENCRYPTION LOGIC ---
+            if hasattr(args, 'encrypt') and args.encrypt:
+                print(f"Encrypting archive: {archive_path} -> .gpg")
+                passphrase = os.environ.get("GEMINI_BACKUP_PASSWORD")
+                if not passphrase:
+                    import getpass
+                    passphrase = getpass.getpass("Enter passphrase for backup encryption: ")
+
+                if not passphrase:
+                    print("Error: Encryption requested but no passphrase provided.")
+                    sys.exit(1)
+
+                encrypted_path = f"{archive_path}.gpg"
+                # gpg --symmetric --cipher-algo AES256 --passphrase-fd 0 --batch --yes --output <out> <in>
+                gpg_cmd = [
+                    "gpg", "--symmetric", "--cipher-algo", "AES256",
+                    "--passphrase-fd", "0", "--batch", "--yes",
+                    "--output", encrypted_path, archive_path
+                ]
+
+                try:
+                    proc = subprocess.run(gpg_cmd, input=passphrase.encode(), check=False)
+                    if proc.returncode != 0:
+                        print("Error: GPG encryption failed.")
+                        sys.exit(1)
+
+                    # Remove original unencrypted archive and update path
+                    os.remove(archive_path)
+                    archive_path = encrypted_path
+                    print(f"Encrypted archive created at: {archive_path}")
+
+                except FileNotFoundError:
+                     print("Error: 'gpg' command not found. Please install GPG or disable encryption.")
+                     sys.exit(1)
+            # -------------------------
+
         else:
             print("DRY RUN: would run tar -C ...")
+            if hasattr(args, 'encrypt') and args.encrypt:
+                print("DRY RUN: would run gpg --symmetric ...")
 
         # 2) Copy to temporary location (sibling of dest)
         tmp_parent = os.path.dirname(dest) or "/tmp"
@@ -215,6 +254,7 @@ def main():
     p.add_argument("--archive-dir", default=DEFAULT_BACKUP_DIR, help="Directory to store tar.gz archives")
     p.add_argument("--dest-dir-parent", default=OLD_CONFIGS_DIR, help="Parent directory where timestamped backups are stored")
     p.add_argument("--dry-run", action="store_true", help="Do not perform destructive actions")
+    p.add_argument("--encrypt", action="store_true", help="Encrypt the backup archive using GPG")
     p.add_argument("--cloud", action="store_true", help="Upload backup to Cloud (B2)")
     p.add_argument("--bucket", help="B2 Bucket Name")
     p.add_argument("--b2-id", help="B2 Key ID (or set env GEMINI_B2_KEY_ID)")

@@ -35,4 +35,5 @@ for _dir in [GEMINI_CLI_HOME, DEFAULT_BACKUP_DIR, CHAT_HISTORY_BACKUP_PATH, OLD_
     os.makedirs(_dir, exist_ok=True)
 
 LOGIN_URL_PATH = "/sdcard/tools/login_url.txt"
-TIMESTAMPED_DIR_REGEX = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{6})-.+\.gemini(\.tar\.gz)?$")
+# Updated regex to allow optional .gpg extension
+TIMESTAMPED_DIR_REGEX = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{6})-.+\.gemini(\.tar\.gz)?(\.gpg)?$")
