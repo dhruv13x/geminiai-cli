@@ -6,7 +6,9 @@ from geminiai_cli.settings_cli import do_config
 import sys
 
 def mock_args(action="list", key=None, value=None, force=False):
-    return MagicMock(config_action=action, key=key, value=value, force=force)
+    m = MagicMock(config_action=action, key=key, value=value, force=force)
+    m.init = False # Explicitly set init to False to avoid MagicMock evaluating to True
+    return m
 
 @patch("geminiai_cli.settings_cli.list_settings")
 @patch("geminiai_cli.settings_cli.cprint")

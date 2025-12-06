@@ -131,33 +131,37 @@ def test_main_dry_run(mock_exists, mock_run, mock_email, mock_lock):
 @patch("os.path.exists", return_value=True)
 @patch("os.makedirs")
 @patch("os.replace")
-@patch("geminiai_cli.backup.B2Manager")
+@patch("geminiai_cli.backup.get_cloud_provider")
 @patch("shutil.rmtree")
-def test_main_cloud(mock_rmtree, mock_b2, mock_replace, mock_makedirs, mock_exists, mock_run, mock_email, mock_lock):
+def test_main_cloud(mock_rmtree, mock_get_provider, mock_replace, mock_makedirs, mock_exists, mock_run, mock_email, mock_lock):
     with patch("sys.argv", ["backup.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
         mock_run.return_value.returncode = 0
+        mock_b2 = MagicMock()
+        mock_get_provider.return_value = mock_b2
+
         backup.main()
-        mock_b2.assert_called()
-        mock_b2.return_value.upload.assert_called()
+
+        mock_get_provider.assert_called()
+        mock_b2.upload_file.assert_called()
 
 @patch("geminiai_cli.backup.acquire_lock")
 @patch("geminiai_cli.backup.read_active_email", return_value="user@example.com")
 @patch("geminiai_cli.backup.run")
 @patch("os.path.exists", return_value=True)
-@patch("geminiai_cli.backup.B2Manager")
+@patch("geminiai_cli.backup.get_cloud_provider", return_value=None)
 @patch("shutil.rmtree")
 @patch("os.makedirs")
 @patch("os.replace")
 @patch("geminiai_cli.credentials.get_setting", return_value=None)
 @patch.dict(os.environ, {}, clear=True)
-def test_main_cloud_missing_creds(mock_get_setting, mock_replace, mock_makedirs, mock_rmtree, mock_b2, mock_exists, mock_run, mock_email, mock_lock):
+def test_main_cloud_missing_creds(mock_get_setting, mock_replace, mock_makedirs, mock_rmtree, mock_get_provider, mock_exists, mock_run, mock_email, mock_lock):
     with patch("sys.argv", ["backup.py", "--cloud"]): # Missing bucket/id/key
         mock_run.return_value.returncode = 0
         # resolve_credentials calls sys.exit(1) if no creds found
         with pytest.raises(SystemExit) as e:
             backup.main()
         assert e.value.code == 1
-        mock_b2.assert_not_called()
+        # mock_get_provider is called but returns None, which causes exit(1)
 
 # NEW TESTS
 

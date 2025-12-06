@@ -6,7 +6,10 @@ import os
 import time
 import sys
 import shutil
+import argparse
 from geminiai_cli import restore
+from geminiai_cli.restore import perform_restore
+from geminiai_cli.recommend import Recommendation, AccountStatus
 
 @patch("geminiai_cli.restore.fcntl")
 def test_acquire_lock_success(mock_fcntl):
@@ -100,7 +103,7 @@ def test_main_auto_oldest(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs
 
 @patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
-@patch("geminiai_cli.restore.B2Manager")
+@patch("geminiai_cli.restore.get_cloud_provider")
 @patch("geminiai_cli.restore.run")
 @patch("os.path.exists", return_value=True)
 @patch("os.makedirs")
@@ -108,15 +111,15 @@ def test_main_auto_oldest(mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
 @patch("geminiai_cli.cooldown._sync_cooldown_file")
-def test_main_cloud(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock, mock_move):
+def test_main_cloud(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_get_provider, mock_lock, mock_move):
     with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
         mock_file = MagicMock()
-        mock_file.file_name = "2025-10-22_042211-test.gemini.tar.gz"
-        mock_b2.return_value.list_backups.return_value = [(mock_file, None)]
+        mock_file.name = "2025-10-22_042211-test.gemini.tar.gz"
+        mock_get_provider.return_value.list_files.return_value = [mock_file]
 
         mock_run.return_value.returncode = 0
         restore.main()
-        mock_b2.return_value.download.assert_called()
+        mock_get_provider.return_value.download_file.assert_called()
 
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.run")
@@ -172,17 +175,18 @@ def test_main_dry_run(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists, mock
         mock_replace.assert_not_called()
 
 @patch("geminiai_cli.restore.acquire_lock")
-@patch("geminiai_cli.restore.B2Manager")
-def test_main_cloud_missing_creds(mock_b2, mock_lock):
+@patch("geminiai_cli.restore.get_cloud_provider")
+def test_main_cloud_missing_creds(mock_get_provider, mock_lock):
     with patch("sys.argv", ["restore.py", "--cloud"]): # Missing bucket/id/key
+        mock_get_provider.return_value = None
         with pytest.raises(SystemExit):
             restore.main()
 
 @patch("geminiai_cli.restore.acquire_lock")
-@patch("geminiai_cli.restore.B2Manager")
-def test_main_cloud_no_backups(mock_b2, mock_lock):
+@patch("geminiai_cli.restore.get_cloud_provider")
+def test_main_cloud_no_backups(mock_get_provider, mock_lock):
     with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
-        mock_b2.return_value.list_backups.return_value = []
+        mock_get_provider.return_value.list_files.return_value = []
         with pytest.raises(SystemExit):
             restore.main()
 
@@ -273,7 +277,7 @@ def test_main_rollback_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists
 
 @patch("shutil.move")
 @patch("geminiai_cli.restore.acquire_lock")
-@patch("geminiai_cli.restore.B2Manager")
+@patch("geminiai_cli.restore.get_cloud_provider")
 @patch("geminiai_cli.restore.run")
 @patch("os.path.exists", return_value=True)
 @patch("os.makedirs")
@@ -281,23 +285,23 @@ def test_main_rollback_fail(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
 @patch("geminiai_cli.cooldown._sync_cooldown_file")
-def test_main_cloud_specific_archive(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_b2, mock_lock, mock_move):
+def test_main_cloud_specific_archive(mock_sync, mock_mkdtemp, mock_rmtree, mock_replace, mock_makedirs, mock_exists, mock_run, mock_get_provider, mock_lock, mock_move):
     specific_archive = "2025-11-21_231311-specific@test.gemini.tar.gz"
     with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k", "--from-archive", specific_archive]):
         mock_file_specific = MagicMock()
-        mock_file_specific.file_name = specific_archive
+        mock_file_specific.name = specific_archive
         
         mock_file_old = MagicMock()
-        mock_file_old.file_name = "2025-10-22_042211-old@test.gemini.tar.gz"
+        mock_file_old.name = "2025-10-22_042211-old@test.gemini.tar.gz"
         
-        # b2.list_backups returns both
-        mock_b2.return_value.list_backups.return_value = [(mock_file_old, None), (mock_file_specific, None)]
+        # b2.list_files returns both
+        mock_get_provider.return_value.list_files.return_value = [mock_file_old, mock_file_specific]
 
         mock_run.return_value.returncode = 0
         restore.main()
         
         # Assert download was called with the SPECIFIC archive, not the oldest one
-        mock_b2.return_value.download.assert_called_with(specific_archive, ANY)
+        mock_get_provider.return_value.download_file.assert_called_with(specific_archive, ANY)
 
 # NEW TESTS
 
@@ -420,14 +424,14 @@ def test_main_force_replace(mock_mkdtemp, mock_rmtree, mock_replace, mock_exists
         mock_rmtree.assert_called() # Should call rmtree on dest
 
 @patch("geminiai_cli.restore.acquire_lock")
-@patch("geminiai_cli.restore.B2Manager")
-def test_main_cloud_specific_archive_not_found(mock_b2, mock_lock):
+@patch("geminiai_cli.restore.get_cloud_provider")
+def test_main_cloud_specific_archive_not_found(mock_get_provider, mock_lock):
     # Test lines 163-164
     specific_archive = "notfound.tar.gz"
     with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k", "--from-archive", specific_archive]):
         mock_file = MagicMock()
-        mock_file.file_name = "other.tar.gz"
-        mock_b2.return_value.list_backups.return_value = [(mock_file, None)]
+        mock_file.name = "other.tar.gz"
+        mock_get_provider.return_value.list_files.return_value = [mock_file]
         with pytest.raises(SystemExit) as e:
             restore.main()
         assert e.value.code == 1
@@ -446,10 +450,10 @@ def test_main_cleanup_temp_download(mock_sync, mock_remove, mock_mkdtemp, mock_r
     # Simulate cloud download flow partially or just force temp_download_path via some way?
     # It's a local variable in main. We need to go through the cloud path.
     with patch("sys.argv", ["restore.py", "--cloud", "--bucket", "b", "--b2-id", "i", "--b2-key", "k"]):
-        with patch("geminiai_cli.restore.B2Manager") as mock_b2:
+        with patch("geminiai_cli.restore.get_cloud_provider") as mock_get_provider:
             mock_file = MagicMock()
-            mock_file.file_name = "2025-10-22_042211-test.gemini.tar.gz"
-            mock_b2.return_value.list_backups.return_value = [(mock_file, None)]
+            mock_file.name = "2025-10-22_042211-test.gemini.tar.gz"
+            mock_get_provider.return_value.list_files.return_value = [mock_file]
             mock_run.return_value.returncode = 0
 
             restore.main()
@@ -472,16 +476,6 @@ def test_main_verification_fail_with_stdout(mock_mkdtemp, mock_rmtree, mock_exis
         with pytest.raises(SystemExit) as e:
             restore.main()
         assert e.value.code == 3
-
-import pytest
-import os
-import json
-import time
-import datetime
-import argparse
-from unittest.mock import MagicMock, patch
-from geminiai_cli.restore import perform_restore
-from geminiai_cli.recommend import Recommendation, AccountStatus
 
 @pytest.fixture
 def mock_restore_env(fs):
@@ -586,11 +580,11 @@ def test_restore_cloud_auto_success(mock_restore_env, capsys):
     rec = Recommendation(email="test@example.com", status=AccountStatus.READY, last_used=None, next_reset=None)
 
     with patch("geminiai_cli.restore.resolve_credentials", return_value=("id", "key", "bucket")):
-        with patch("geminiai_cli.restore.B2Manager") as MockB2:
-            b2_instance = MockB2.return_value
+        with patch("geminiai_cli.restore.get_cloud_provider") as MockProvider:
+            provider = MockProvider.return_value
             file_version = MagicMock()
-            file_version.file_name = "2025-01-01_120000-test@example.com.gemini.tar.gz"
-            b2_instance.list_backups.return_value = [(file_version, None)]
+            file_version.name = "2025-01-01_120000-test@example.com.gemini.tar.gz"
+            provider.list_files.return_value = [file_version]
 
             with patch("geminiai_cli.restore.get_recommendation", return_value=rec):
                  with patch("geminiai_cli.restore.acquire_lock"), \
@@ -623,11 +617,11 @@ def test_restore_cloud_auto_not_found(mock_restore_env, capsys):
     rec = Recommendation(email="test@example.com", status=AccountStatus.READY, last_used=None, next_reset=None)
 
     with patch("geminiai_cli.restore.resolve_credentials", return_value=("id", "key", "bucket")):
-        with patch("geminiai_cli.restore.B2Manager") as MockB2:
-            b2_instance = MockB2.return_value
+        with patch("geminiai_cli.restore.get_cloud_provider") as MockProvider:
+            provider = MockProvider.return_value
             file_version = MagicMock()
-            file_version.file_name = "2025-01-01_120000-other@example.com.gemini.tar.gz"
-            b2_instance.list_backups.return_value = [(file_version, None)]
+            file_version.name = "2025-01-01_120000-other@example.com.gemini.tar.gz"
+            provider.list_files.return_value = [file_version]
 
             with patch("geminiai_cli.restore.get_recommendation", return_value=rec):
                 with pytest.raises(SystemExit):
@@ -703,11 +697,11 @@ def test_restore_cloud_specific_success(mock_restore_env, capsys):
     )
 
     with patch("geminiai_cli.restore.resolve_credentials", return_value=("id", "key", "bucket")):
-        with patch("geminiai_cli.restore.B2Manager") as MockB2:
-            b2_instance = MockB2.return_value
+        with patch("geminiai_cli.restore.get_cloud_provider") as MockProvider:
+            provider = MockProvider.return_value
             fv = MagicMock()
-            fv.file_name = valid_name
-            b2_instance.list_backups.return_value = [(fv, None)]
+            fv.name = valid_name
+            provider.list_files.return_value = [fv]
 
             with patch("geminiai_cli.restore.acquire_lock"), \
                  patch("geminiai_cli.restore.extract_archive"), \
@@ -739,12 +733,12 @@ def test_restore_cloud_specific_fail(mock_restore_env, capsys):
     )
 
     with patch("geminiai_cli.restore.resolve_credentials", return_value=("id", "key", "bucket")):
-        with patch("geminiai_cli.restore.B2Manager") as MockB2:
-            b2_instance = MockB2.return_value
+        with patch("geminiai_cli.restore.get_cloud_provider") as MockProvider:
+            provider = MockProvider.return_value
             # Provide at least one valid file so we don't exit early
             fv = MagicMock()
-            fv.file_name = "2025-01-01_120000-existing.gemini.tar.gz"
-            b2_instance.list_backups.return_value = [(fv, None)]
+            fv.name = "2025-01-01_120000-existing.gemini.tar.gz"
+            provider.list_files.return_value = [fv]
 
             with pytest.raises(SystemExit):
                  perform_restore(args)
