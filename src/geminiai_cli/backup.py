@@ -235,6 +235,9 @@ def perform_backup(args: argparse.Namespace):
             if provider:
                 # Upload the tar.gz we just created
                 provider.upload_file(archive_path, os.path.basename(archive_path))
+            else:
+                print("Error: Cloud backup requested but no valid credentials found.")
+                sys.exit(1)
         # ------------------------------------
 
         print("Backup complete.")
