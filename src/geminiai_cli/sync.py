@@ -12,9 +12,9 @@ import os
 import sys
 import argparse
 from .ui import cprint, NEON_GREEN, NEON_CYAN, NEON_YELLOW, NEON_RED, NEON_MAGENTA
-from .b2 import B2Manager
-from .settings import get_setting
+from .cloud_factory import get_cloud_provider
 from .credentials import resolve_credentials
+from .ui import console
 
 def get_local_backups(backup_dir):
     """Returns a set of local backup filenames (only .tar.gz)."""
@@ -30,13 +30,14 @@ def get_local_backups(backup_dir):
     }
     return files
 
-def get_cloud_backups(b2):
+def get_cloud_backups(provider):
     """Returns a set of cloud backup filenames."""
     cloud_files = set()
     try:
-        for file_version, _ in b2.list_backups():
-            if file_version.file_name.endswith(".gemini.tar.gz"):
-                cloud_files.add(file_version.file_name)
+        files = provider.list_files()
+        for f in files:
+            if f.name.endswith(".gemini.tar.gz"):
+                cloud_files.add(f.name)
     except Exception as e:
         cprint(NEON_RED, f"[ERROR] Failed to list cloud backups: {e}")
         sys.exit(1)
@@ -47,7 +48,19 @@ def perform_sync(direction: str, args):
     Unified sync logic.
     direction: "push" (Local -> Cloud) or "pull" (Cloud -> Local)
     """
-    key_id, app_key, bucket_name = resolve_credentials(args)
+    # Attempt to resolve generic cloud provider first
+    # But wait, resolve_credentials was B2 specific. We need to adapt it or handle inside get_cloud_provider.
+    # Actually, get_cloud_provider handles finding keys.
+
+    provider = get_cloud_provider(args)
+    if not provider:
+        sys.exit(1)
+
+    # We should know the bucket name for display?
+    # provider doesn't expose bucket name in interface, let's just say "Cloud".
+    # Or cast and check.
+    bucket_name = getattr(provider, "bucket_name", "Cloud")
+
     backup_dir = os.path.abspath(os.path.expanduser(args.backup_dir))
 
     # Ensure backup dir exists if pulling
@@ -59,14 +72,12 @@ def perform_sync(direction: str, args):
          cprint(NEON_RED, f"[ERROR] Local backup directory not found: {backup_dir}")
          sys.exit(1)
 
-    arrow_str = "Local -> B2" if direction == "push" else "B2 -> Local"
+    arrow_str = "Local -> Cloud" if direction == "push" else "Cloud -> Local"
     cprint(NEON_MAGENTA, f"Starting Sync ({arrow_str}: {bucket_name})...")
-    
-    b2 = B2Manager(key_id, app_key, bucket_name)
     
     cprint(NEON_CYAN, "Analyzing differences...")
     local_files = get_local_backups(backup_dir)
-    cloud_files = get_cloud_backups(b2)
+    cloud_files = get_cloud_backups(provider)
 
     if direction == "push":
         missing = local_files - cloud_files
@@ -77,7 +88,7 @@ def perform_sync(direction: str, args):
         cprint(NEON_YELLOW, f"Found {len(missing)} files missing in cloud. Uploading...")
         for filename in sorted(missing):
             local_path = os.path.join(backup_dir, filename)
-            b2.upload(local_path, remote_name=filename)
+            provider.upload_file(local_path, filename)
 
     elif direction == "pull":
         missing = cloud_files - local_files
@@ -88,6 +99,6 @@ def perform_sync(direction: str, args):
         cprint(NEON_YELLOW, f"Found {len(missing)} files missing locally. Downloading...")
         for filename in sorted(missing):
             local_path = os.path.join(backup_dir, filename)
-            b2.download(remote_name=filename, local_path=local_path)
+            provider.download_file(filename, local_path)
 
     cprint(NEON_GREEN, "Sync Completed Successfully!")

@@ -518,7 +518,7 @@ def merge_resets(local: List[Dict], remote: List[Dict]) -> List[Dict]:
 
     return list(merged_map.values())
 
-def sync_resets_with_cloud(b2_manager):
+def sync_resets_with_cloud(provider):
     """
     Downloads cloud cooldowns, merges with local, and pushes back.
     """
@@ -527,7 +527,7 @@ def sync_resets_with_cloud(b2_manager):
     cprint(NEON_CYAN, "Syncing cooldowns with cloud...")
     
     # 1. Download
-    remote_json_str = b2_manager.download_to_string(CLOUD_FILE)
+    remote_json_str = provider.download_to_string(CLOUD_FILE)
     remote_entries = []
     if remote_json_str:
         try:
@@ -549,7 +549,7 @@ def sync_resets_with_cloud(b2_manager):
     # 4. Upload
     try:
         merged_json_str = json.dumps(merged, ensure_ascii=False, indent=2)
-        b2_manager.upload_string(merged_json_str, CLOUD_FILE)
+        provider.upload_string(merged_json_str, CLOUD_FILE)
     except Exception as e:
         cprint(NEON_RED, f"[ERROR] Failed to upload cooldowns: {e}")
 

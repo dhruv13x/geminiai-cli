@@ -74,8 +74,18 @@ def get_parser() -> argparse.ArgumentParser:
     # Use RichHelpParser for the main parser
     parser = RichHelpParser(description="Gemini AI Automation Tool", add_help=False)
 
+    # 0. Check for --profile in args manually before full parsing
+    profile = None
+    if "--profile" in sys.argv:
+        try:
+            idx = sys.argv.index("--profile")
+            if idx + 1 < len(sys.argv):
+                profile = sys.argv[idx + 1]
+        except ValueError:
+            pass
+
     # Load project config (pyproject.toml / geminiai.toml)
-    project_defaults = load_project_config()
+    project_defaults = load_project_config(profile=profile)
     if project_defaults:
         # Normalize keys (kebab-case -> snake_case)
         project_defaults = normalize_config_keys(project_defaults)
@@ -89,6 +99,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument("--session", action="store_true", help="Show current active session")
     parser.add_argument("--update", action="store_true", help="Reinstall / update Gemini CLI")
     parser.add_argument("--check-update", action="store_true", help="Check for updates")
+    parser.add_argument("--profile", help="Specify a configuration profile to use (e.g., work, personal)")
 
     # Backup command
     backup_parser = subparsers.add_parser("backup", help="Backup Gemini configuration and chats (local or Backblaze B2 cloud).")

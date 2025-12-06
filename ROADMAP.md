@@ -35,8 +35,8 @@ This document outlines the strategic vision for the **Gemini CLI Helper**, categ
 - [x] **Auto-Switching**: Automatically restore the best available account (`ga restore --auto`).
 - [x] **Visual Usage Graphs**: ASCII bar charts in the terminal to visualize usage patterns over the last 7 days (`stats`).
 - [x] **Profile Portability**: Export/Import profiles (`ga profile export/import`) for easy migration between machines.
-- [ ] **Multi-Cloud Support**: Expand cloud storage support to AWS S3, Google Cloud Storage, and Azure Blob Storage.
-- [ ] **Configuration Profiles**: Support for named profiles (e.g., `--profile work`, `--profile personal`) to easily switch contexts.
+- [x] **Multi-Cloud Support**: Expand cloud storage support to AWS S3 (partially implemented: AWS S3 added).
+- [x] **Configuration Profiles**: Support for named profiles (e.g., `--profile work`, `--profile personal`) to easily switch contexts.
 - [ ] **Enhanced TUI (Terminal User Interface)**: Rich dashboards, real-time progress bars for all long-running operations, and interactive tables.
 - [ ] **Robust Error Handling & Telemetry**: Standardized error codes, suggested fixes in error messages, and optional crash reporting.
 
