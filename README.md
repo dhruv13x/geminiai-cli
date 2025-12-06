@@ -35,14 +35,14 @@
 
 ## About
 
-`geminiai-cli` is a powerful, "batteries-included" command-line interface designed to supercharge your Gemini AI experience. Whether you need to manage multiple accounts, ensure your configuration is safely backed up to the cloud, or track your free tier usage to avoid rate limits, this tool has you covered. It wraps complex operations into simple, memorable commands.
+`geminiai-cli` is a powerful, "batteries-included" command-line interface designed to supercharge your Gemini AI experience. Whether you need to manage multiple accounts, ensure your configuration is safely backed up to the cloud (S3 or B2), or track your free tier usage to avoid rate limits, this tool has you covered. It wraps complex operations into simple, memorable commands.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - **Python**: 3.8 or higher
-- **Dependencies**: `b2sdk`, `rich` (installed automatically)
+- **Dependencies**: `b2sdk`, `boto3`, `rich` (installed automatically)
 
 ### One-Command Installation
 
@@ -60,7 +60,7 @@ Get up and running immediately. You can use `geminiai`, `geminiai-cli`, or the s
 # Run a local backup
 geminiai backup
 
-# Sync your backups to the cloud (Push to B2)
+# Sync your backups to the cloud (Push to S3 or B2)
 geminiai sync push
 
 # Get the next best account recommendation
@@ -69,22 +69,26 @@ ga recommend
 # Check your account cooldown status
 ga cooldown
 
+# Use a specific profile (e.g., work)
+ga --profile work backup
+
 # View all available commands
 geminiai --help
 ```
 
 ## ✨ Key Features
 
-- **🛡️ God Level Backups**: Create local or **Cloud-based (Backblaze B2)** backups of your Gemini configuration and chats.
+- **🛡️ God Level Backups**: Create local or **Cloud-based** backups (AWS S3 & Backblaze B2) of your Gemini configuration and chats.
+- **☁️ Multi-Cloud Support**: Native support for **AWS S3** and **Backblaze B2** for redundant cloud storage.
 - **🔄 Unified Cloud Sync**: Seamlessly `push` and `pull` backups between your local machine and the cloud.
+- **👤 Configuration Profiles**: Manage multiple environments (e.g., personal, work) with the `--profile` flag and `profile` command.
 - **💬 Chat Management**: Backup, restore, resume, and **cleanup** chat sessions and logs.
 - **🧠 Smart Recommendation**: Automatically switch to the best available account based on cooldowns and usage history.
 - **⏱️ Resets Management**: Track your Gemini free tier reset schedules to maximize usage without hitting limits.
 - **❄️ Cooldown Tracking**: Monitor account cooldown status to avoid rate limiting.
 - **📊 Visual Usage Stats**: Visualize usage patterns over the last 7 days.
-- **📦 Profile Portability**: Easily export and import your entire configuration and history (`ga profile export/import`).
 - **🩺 Doctor Mode**: Run a system diagnostic check to identify and fix issues.
-- **🔐 Credential Management**: Securely handle Backblaze B2 credentials via CLI, Environment Variables, or Doppler.
+- **🔐 Credential Management**: Securely handle credentials via CLI, Environment Variables, or Doppler.
 - **⚡ Integrity Checks**: Verify your configuration integrity against backups.
 - **🔄 Automated Updates**: Built-in self-update mechanism.
 - **🧙 Interactive Wizard**: Guided setup process for easy configuration (`config --init`).
@@ -97,6 +101,10 @@ You can configure credentials using `.env` files, environment variables, or Dopp
 
 | Variable | Description |
 | :--- | :--- |
+| `GEMINI_AWS_ACCESS_KEY_ID` | Your AWS Access Key ID (for S3). |
+| `GEMINI_AWS_SECRET_ACCESS_KEY` | Your AWS Secret Access Key (for S3). |
+| `GEMINI_S3_BUCKET` | The name of your AWS S3 Bucket. |
+| `GEMINI_S3_REGION` | The AWS Region (default: `us-east-1`). |
 | `GEMINI_B2_KEY_ID` | Your Backblaze B2 Application Key ID. |
 | `GEMINI_B2_APP_KEY` | Your Backblaze B2 Application Key. |
 | `GEMINI_B2_BUCKET` | The name of your Backblaze B2 Bucket. |
@@ -106,26 +114,27 @@ You can configure credentials using `.env` files, environment variables, or Dopp
 
 | Command | Description | Key Arguments |
 | :--- | :--- | :--- |
-| `backup` | Backup configuration and chats. | `--src`, `--archive-dir`, `--cloud`, `--bucket`, `--dry-run` |
-| `restore` | Restore configuration from backup. | `--from-dir`, `--from-archive`, `--cloud`, `--force`, `--auto` |
-| `sync` | Sync backups with Cloud (B2). | `push`, `pull`, `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key` |
-| `chat` | Manage chat history. | `backup`, `restore`, `cleanup` (w/ `--force`), `resume` |
+| `backup` | Backup configuration and chats. | `--src`, `--archive-dir`, `--dest-dir-parent`, `--cloud`, `--bucket`, `--dry-run` |
+| `restore` | Restore configuration from backup. | `--from-dir`, `--from-archive`, `--search-dir`, `--cloud`, `--force`, `--auto` |
+| `sync` | Sync backups with Cloud (S3/B2). | `push`, `pull`, `--backup-dir`, `--bucket`, `--b2-id`, `--b2-key` |
+| `chat` | Manage chat history. | `backup`, `restore`, `cleanup` (w/ `--dry-run`, `--force`), `resume` |
 | `list-backups` | List available backups. | `--cloud`, `--search-dir`, `--bucket` |
-| `prune` | Delete old backups. | `--keep`, `--cloud`, `--cloud-only`, `--dry-run` |
-| `check-integrity` | Verify configuration integrity. | `--src`, `--search-dir` |
+| `prune` | Delete old backups. | `--keep`, `--cloud`, `--cloud-only`, `--dry-run`, `--bucket` |
+| `check-integrity` | Verify configuration integrity. | `--src` |
 | `check-b2` | Verify B2 credentials. | `--bucket`, `--b2-id`, `--b2-key` |
-| `config` | Manage persistent settings. | `set`, `get`, `list`, `unset`, `--force` |
-| `resets` | Manage free tier reset schedules. | `--list`, `--next`, `--add`, `--remove` |
+| `config` | Manage persistent settings. | `set`, `get`, `list`, `unset`, `--init`, `--force` |
+| `resets` | Manage free tier reset schedules. | `--list`, `--next` (w/ email/id), `--add`, `--remove` |
 | `cooldown` | Show account cooldown status. | `--cloud`, `--remove`, `--bucket` |
-| `recommend` | Suggest next best account. | *(No arguments)* |
-| `stats` | Show usage statistics. | *(No arguments)* |
-| `profile` | Export/Import profiles. | `export`, `import`, `--force` |
+| `recommend` | Suggest next best account. | *(No arguments)* (Alias: `next`) |
+| `stats` | Show usage statistics. | *(No arguments)* (Alias: `usage`) |
+| `profile` | Manage configuration profiles. | `export`, `import` (w/ `--force`) |
 | `doctor` | Run system diagnostics. | *(No arguments)* |
 
 ### Global Options
 
 | Option | Description |
 | :--- | :--- |
+| `--profile <name>` | Specify a configuration profile to use (e.g., `work`). |
 | `--login` | Login to Gemini CLI. |
 | `--logout` | Logout from Gemini CLI. |
 | `--session` | Show current active session. |
@@ -139,13 +148,16 @@ The project is structured as a modular Python CLI application using `argparse` f
 ```text
 src/geminiai_cli/
 ├── cli.py             # Main Entry Point & Argument Parsing
+├── cloud_factory.py   # Cloud Provider Factory (S3/B2)
+├── cloud_s3.py        # AWS S3 Integration
+├── b2.py              # Backblaze B2 Integration
 ├── backup.py          # Backup Logic
 ├── restore.py         # Restore Logic
 ├── chat.py            # Chat History Management
 ├── sync.py            # Cloud/Local Sync Logic (Push/Pull)
 ├── recommend.py       # Smart Account Recommendation
+├── profile.py         # Profile Import/Export Logic
 ├── stats.py           # Visual Usage Statistics
-├── b2.py              # Backblaze B2 Integration
 ├── integrity.py       # Integrity Check Logic
 ├── prune.py           # Backup Pruning Logic
 ├── doctor.py          # System Diagnostics
@@ -157,8 +169,9 @@ src/geminiai_cli/
 
 ### ✅ Completed
 - **Account Management**: Seamless login/logout.
-- **Cloud Backups**: Backblaze B2 integration.
+- **Multi-Cloud Support**: AWS S3 & Backblaze B2 integration.
 - **Unified Sync**: Push and Pull backups seamlessly.
+- **Profiles**: Support for multiple configuration profiles.
 - **Resets & Cooldowns**: Smart rate limit management.
 - **Automated Updates**: Self-updating mechanism.
 - **Health Checks**: Doctor mode for diagnostics.
@@ -167,7 +180,7 @@ src/geminiai_cli/
 - **Interactive Config**: Wizard-style setup.
 
 ### 🚧 Upcoming
-- **Multi-Cloud Support**: AWS S3, Google Cloud Storage.
+- **Google Cloud Storage Support**: Native GCS integration.
 - **Enhanced TUI**: Rich dashboards and real-time progress bars.
 - **Webhooks**: Integration with Slack/Discord for alerts.
 - **AI-Driven Anomaly Detection**: Smart backup analysis.
