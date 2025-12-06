@@ -6,13 +6,14 @@ import os
 import sys
 import io
 from .ui import cprint, NEON_GREEN, NEON_RED, NEON_YELLOW
+from .cloud_storage import CloudStorageProvider, CloudFile
 
 try:
     from b2sdk.v2 import InMemoryAccountInfo, B2Api
 except ImportError:
     B2Api = None
 
-class B2Manager:
+class B2Manager(CloudStorageProvider):
     def __init__(self, key_id, app_key, bucket_name):
         if not B2Api:
             cprint(NEON_RED, "[ERROR] 'b2sdk' is not installed. Please run: pip install b2sdk")
@@ -31,6 +32,41 @@ class B2Manager:
             cprint(NEON_RED, f"[CLOUD] Authentication failed: {str(e)}")
             sys.exit(1)
 
+    def upload_file(self, local_path, remote_path):
+        """Standard interface method for upload."""
+        self.upload(local_path, remote_path)
+
+    def download_file(self, remote_path, local_path):
+        """Standard interface method for download."""
+        self.download(remote_path, local_path)
+
+    def list_files(self, prefix=""):
+        """Standard interface method for listing files."""
+        # Adapter to convert B2 ls generator to List[CloudFile]
+        files = []
+        try:
+            for file_version, _ in self.bucket.ls(recursive=True, show_versions=False):
+                if file_version.file_name.startswith(prefix):
+                    files.append(CloudFile(
+                        name=file_version.file_name,
+                        size=file_version.size,
+                        last_modified=file_version.upload_timestamp / 1000 # Convert ms to seconds
+                    ))
+        except Exception as e:
+            cprint(NEON_RED, f"[CLOUD] List failed: {str(e)}")
+        return files
+
+    def delete_file(self, remote_path):
+         # B2 SDK delete needs file id usually, but let's try to hide that complexity or implement it properly
+         # B2 simple delete by name isn't direct in older SDKs without getting ID first.
+         try:
+            file_version = self.bucket.get_file_info_by_name(remote_path)
+            self.bucket.delete_file_version(file_version.id_, remote_path)
+            cprint(NEON_GREEN, f"[CLOUD] Deleted {remote_path}")
+         except Exception as e:
+             cprint(NEON_RED, f"[CLOUD] Delete failed: {str(e)}")
+
+    # Original methods kept for compatibility or extended functionality
     def upload(self, local_path, remote_name=None):
         if not remote_name:
             remote_name = os.path.basename(local_path)
@@ -60,7 +96,7 @@ class B2Manager:
             raise
 
     def list_backups(self):
-        """Returns a generator of file versions."""
+        """Returns a generator of file versions. Deprecated in favor of list_files for generic use."""
         return self.bucket.ls(recursive=True)
 
     def download(self, remote_name, local_path):

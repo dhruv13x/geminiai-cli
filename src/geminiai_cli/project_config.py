@@ -11,17 +11,31 @@ else:
         # If tomli is missing on old python, we just won't load toml config
         tomllib = None
 
-def load_project_config():
+def load_project_config(profile=None):
     """
-    Load configuration from pyproject.toml or geminiai.toml in the current directory.
+    Load configuration from pyproject.toml or geminiai.toml (or profile specific) in the current directory.
     Returns a dictionary of {arg_name: value}.
     
     Priority:
-    1. geminiai.toml ([tool.geminiai] or root)
-    2. pyproject.toml ([tool.geminiai])
+    1. geminiai-<profile>.toml (if profile is set)
+    2. geminiai.toml ([tool.geminiai] or root)
+    3. pyproject.toml ([tool.geminiai])
     """
     if not tomllib:
         return {}
+
+    # 0. Profile config
+    if profile:
+        profile_file = f"geminiai-{profile}.toml"
+        if os.path.exists(profile_file):
+            try:
+                with open(profile_file, "rb") as f:
+                    data = tomllib.load(f)
+                    if "tool" in data and "geminiai" in data["tool"]:
+                        return data["tool"]["geminiai"]
+                    return data
+            except Exception:
+                pass
 
     # 1. geminiai.toml
     if os.path.exists("geminiai.toml"):

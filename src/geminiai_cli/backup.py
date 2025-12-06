@@ -29,7 +29,7 @@ import time
 import tempfile
 from typing import Optional
 from .config import TIMESTAMPED_DIR_REGEX, DEFAULT_BACKUP_DIR, OLD_CONFIGS_DIR, GEMINI_CLI_HOME
-from .b2 import B2Manager
+from .cloud_factory import get_cloud_provider
 from .settings import get_setting
 from .credentials import resolve_credentials
 
@@ -231,12 +231,10 @@ def perform_backup(args: argparse.Namespace):
         
         # --- NEW CODE BLOCK: CLOUD UPLOAD ---
         if args.cloud:
-            # Resolve credentials using centralized logic (CLI > Doppler > Env > Config)
-            key_id, app_key, bucket = resolve_credentials(args)
-
-            b2 = B2Manager(key_id, app_key, bucket)
-            # Upload the tar.gz we just created
-            b2.upload(archive_path, remote_name=os.path.basename(archive_path))
+            provider = get_cloud_provider(args)
+            if provider:
+                # Upload the tar.gz we just created
+                provider.upload_file(archive_path, os.path.basename(archive_path))
         # ------------------------------------
 
         print("Backup complete.")

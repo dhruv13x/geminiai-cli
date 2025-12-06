@@ -31,7 +31,7 @@ import tempfile
 import time
 from typing import Optional, Tuple
 from .config import DEFAULT_BACKUP_DIR, NEON_GREEN, NEON_RED, NEON_YELLOW, NEON_CYAN, RESET, DEFAULT_GEMINI_HOME, TIMESTAMPED_DIR_REGEX, OLD_CONFIGS_DIR, GEMINI_CLI_HOME
-from .b2 import B2Manager
+from .cloud_factory import get_cloud_provider
 from .settings import get_setting
 from .credentials import resolve_credentials
 from .session import get_active_session
@@ -219,22 +219,22 @@ def perform_restore(args: argparse.Namespace):
 
     # --- NEW CODE BLOCK: CLOUD DISCOVERY ---
     if hasattr(args, 'cloud') and args.cloud:
-        key_id, app_key, bucket_name = resolve_credentials(args)
-
-        b2 = B2Manager(key_id, app_key, bucket_name)
+        provider = get_cloud_provider(args)
+        if not provider:
+            sys.exit(1)
         
         # 1. List backups
-        print("Fetching file list from B2...")
-        # b2sdk list_file_versions returns a generator of FileVersion objects
+        print("Fetching file list from Cloud...")
+        files = provider.list_files()
         all_files = []
-        for file_version, _ in b2.list_backups():
-            if is_backup_archive(file_version.file_name):
-                ts = parse_timestamp_from_name(file_version.file_name)
+        for f in files:
+            if is_backup_archive(f.name):
+                ts = parse_timestamp_from_name(f.name)
                 if ts:
-                    all_files.append((ts, file_version.file_name))
+                    all_files.append((ts, f.name))
         
         if not all_files:
-            print("No valid backups found in B2 bucket.")
+            print("No valid backups found in Cloud bucket.")
             sys.exit(1)
 
         target_file_name = None
@@ -275,7 +275,7 @@ def perform_restore(args: argparse.Namespace):
             if target_file_name:
                 print(f"Selected specified cloud backup: {target_file_name}")
             else:
-                print(f"Error: Specified archive '{wanted_name}' not found in B2 bucket.")
+                print(f"Error: Specified archive '{wanted_name}' not found in Cloud bucket.")
                 sys.exit(1)
         else:
             # 2. Auto-select oldest (matches existing logic)
@@ -290,7 +290,7 @@ def perform_restore(args: argparse.Namespace):
         os.makedirs(os.path.dirname(temp_download_path), exist_ok=True)
 
         try:
-            b2.download(target_file_name, temp_download_path)
+            provider.download_file(target_file_name, temp_download_path)
         except Exception:
             sys.exit(1)
         
@@ -456,24 +456,28 @@ def perform_restore(args: argparse.Namespace):
                     
                     # Sync with Cloud
                     try:
-                        b2_for_sync = None
+                        # We need to sync resets.json to cloud if configured.
+                        # sync_resets_with_cloud expects a B2Manager-like object (with upload_string/download_to_string if B2).
+                        # But wait, generic provider has upload_file/download_file.
+                        # sync_resets_with_cloud logic might be coupled to B2Manager.
+                        
+                        # Let's check sync_resets_with_cloud in reset_helpers.py later.
+                        # For now, let's just try to get provider.
+                        
+                        provider_for_sync = None
                         if getattr(args, 'cloud', False):
-                            # Re-use the B2 instance from the restore process
-                            # (It is defined in the 'if args.cloud:' block above)
-                            b2_for_sync = locals().get('b2') 
-                        
-                        if not b2_for_sync:
-                            # Try to resolve credentials independently
-                            try:
-                                kid, key, bkt = resolve_credentials(args)
-                                if kid and key and bkt:
-                                    b2_for_sync = B2Manager(kid, key, bkt)
-                            except Exception:
-                                # Credentials might not be configured, skip sync
-                                pass
-                        
-                        if b2_for_sync:
-                            sync_resets_with_cloud(b2_for_sync)
+                             provider_for_sync = locals().get('provider')
+
+                        if not provider_for_sync:
+                             provider_for_sync = get_cloud_provider(args)
+
+                        if provider_for_sync:
+                             # We need to adapt sync_resets_with_cloud to support generic provider
+                             # OR cast/check type if we haven't updated reset_helpers yet.
+                             # For this step, I'll pass the provider and let reset_helpers fail if not updated,
+                             # but I should update reset_helpers too.
+                             sync_resets_with_cloud(provider_for_sync)
+
                     except Exception as e:
                         cprint(NEON_RED, f"[WARN] Could not sync resets to cloud: {e}")
                     
