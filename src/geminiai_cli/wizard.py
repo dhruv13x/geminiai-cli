@@ -25,13 +25,12 @@ def run_wizard():
         set_setting("GEMINI_B2_APP_KEY", b2_key)
     if bucket:
         set_setting("GEMINI_B2_BUCKET", bucket)
-
-    # Assuming we want to save backup dir if different or just save it explicitly
-    # But settings usually stores env vars override.
-    # If the user provides a path, we can set GEMINI_BACKUP_DIR env var setting if the app supports it.
-    # Checking `src/geminiai_cli/config.py` might reveal if GEMINI_BACKUP_DIR is respected.
-    # Actually, `args.py` uses `DEFAULT_BACKUP_DIR` which comes from config.
-    # Let's assume for now we don't save backup dir unless we know the key.
-    # But for the test to pass we need to verify inputs.
+    
+    # Save backup_dir if it's different from the default or explicitly set
+    if backup_dir and backup_dir != DEFAULT_BACKUP_DIR:
+        set_setting("GEMINI_BACKUP_DIR", backup_dir)
+    elif backup_dir == DEFAULT_BACKUP_DIR:
+        # Even if it's the default, explicitly save it for clarity in settings
+        set_setting("GEMINI_BACKUP_DIR", backup_dir)
 
     cprint(NEON_GREEN, "Configuration saved successfully!")
