@@ -86,13 +86,12 @@ def perform_import(args: argparse.Namespace):
                 ".gemini_resets.json": os.path.expanduser("~/.gemini_resets.json")
             }
 
-            # If geminiai.toml is not in CWD, maybe check if we should restore to DEFAULT_GEMINI_HOME?
-            # For now, sticking to CWD as per typical "load config from here" behavior or explicit restore behavior.
-            # If the user wants to restore to ~/.gemini, they should probably move it there.
-            # OR we can detect if it exists in ~/.gemini and restore there if CWD doesn't have it.
+            # If geminiai.toml is in the archive
             if "geminiai.toml" in namelist:
-                 if not os.path.exists("geminiai.toml") and os.path.exists(os.path.join(DEFAULT_GEMINI_HOME, "geminiai.toml")):
-                     destinations["geminiai.toml"] = os.path.join(DEFAULT_GEMINI_HOME, "geminiai.toml")
+                # If no geminiai.toml in CWD, prioritize DEFAULT_GEMINI_HOME
+                if not os.path.exists("geminiai.toml"):
+                    destinations["geminiai.toml"] = os.path.join(DEFAULT_GEMINI_HOME, "geminiai.toml")
+                # Else, it defaults to CWD already as set above
 
             for filename in namelist:
                 if filename in destinations:

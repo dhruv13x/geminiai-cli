@@ -1,5 +1,6 @@
 import os
 import boto3
+from botocore.exceptions import ClientError # Import ClientError
 from .cloud_storage import CloudStorageProvider, CloudFile
 from .ui import console
 
@@ -68,12 +69,12 @@ class S3Provider(CloudStorageProvider):
         try:
             response = self.client.get_object(Bucket=self.bucket_name, Key=remote_path)
             return response["Body"].read().decode("utf-8")
-        except self.client.exceptions.NoSuchKey:
-            return None
-        except Exception as e:
-            # If 404/NoSuchKey, return None
-            # Boto3 might raise ClientError
-            if "NoSuchKey" in str(e) or "404" in str(e):
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchKey":
                 return None
+            else:
+                console.print(f"[bold red]S3 Download String Error:[/ {e}")
+                raise # Re-raise other ClientErrors
+        except Exception as e:
             console.print(f"[bold red]S3 Download String Error:[/ {e}")
             return None
