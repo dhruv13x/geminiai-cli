@@ -45,7 +45,7 @@ class B2Manager(CloudStorageProvider):
         # Adapter to convert B2 ls generator to List[CloudFile]
         files = []
         try:
-            for file_version, _ in self.bucket.ls(recursive=True, show_versions=False):
+            for file_version, _ in self.bucket.ls(recursive=True):
                 if file_version.file_name.startswith(prefix):
                     files.append(CloudFile(
                         name=file_version.file_name,
