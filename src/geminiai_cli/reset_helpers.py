@@ -123,8 +123,8 @@ def _save_store(entries: List[Dict[str, Any]]):
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-def _now_ist() -> datetime:
-    return datetime.now(IST)
+def _now_local() -> datetime:
+    return datetime.now().astimezone()
 
 # ------------------------
 # Parsing helpers
@@ -176,14 +176,14 @@ def _parse_email_from_text(text: str) -> Optional[str]:
 # ------------------------
 # Entry creation & cleanup
 # ------------------------
-def _compute_next_ist_for_time(hour: int, minute: int, ampm: Optional[str]=None) -> datetime:
+def _compute_next_local_for_time(hour: int, minute: int, ampm: Optional[str]=None) -> datetime:
     """
-    Interpret hour/minute possibly with AM/PM. Return the next IST datetime for that time.
-    Times will be parsed and treated as IST.
+    Interpret hour/minute possibly with AM/PM. Return the next local datetime for that time.
+    Times will be parsed and treated as local machine time.
     If AM/PM provided, convert to 24-hour, else assume given hour is already 0-23.
-    Then build a datetime for today at that IST time; if <= now, add 1 day.
+    Then build a datetime for today at that local time; if <= now, add 1 day.
     """
-    now = _now_ist()
+    now = _now_local()
     hour24 = hour
     if ampm: # Only apply AM/PM logic if ampm is explicitly given
         ampm = ampm.upper()
@@ -222,13 +222,13 @@ def add_reset_entry(time_str_raw: str, email: Optional[str]=None, provided_ampm:
 
     # if minutes were single-digit like 5 -> 05
     minute = _normalize_minutes(int(minute))
-    reset_dt = _compute_next_ist_for_time(int(hour), int(minute), final_ampm) # Pass final_ampm
+    reset_dt = _compute_next_local_for_time(int(hour), int(minute), final_ampm) # Pass final_ampm
     entry = {
         "id": str(uuid.uuid4())[:8],
         "email": email,
         "saved_string": time_str_raw.strip(),
-        "reset_ist": reset_dt.isoformat(),
-        "saved_at": _now_ist().isoformat()
+        "reset_ist": reset_dt.isoformat(), # Keep key name for compat, but it stores local ISO
+        "saved_at": _now_local().isoformat()
     }
     entries = _load_store()
     entries.append(entry)
@@ -241,7 +241,7 @@ def cleanup_expired() -> List[Dict[str,Any]]:
     Return list of removed entries.
     """
     entries = _load_store()
-    now = _now_ist()
+    now = _now_local()
     keep = []
     removed = []
     for e in entries:
@@ -288,7 +288,7 @@ def save_reset_time_from_output(text: str) -> bool:
                 cprint(NEON_RED, "Invalid AM/PM specified. Cannot record entry.")
                 return False
         # If hour > 12 (e.g., 13-23), it's unambiguous 24-hour, no prompt needed.
-        # final_ampm remains None, and _compute_next_ist_for_time will handle it as 24h.
+        # final_ampm remains None, and _compute_next_local_for_time will handle it as 24h.
 
     try:
         entry = add_reset_entry(time_str_raw, email, final_ampm) # Pass final_ampm to add_reset_entry
@@ -315,18 +315,18 @@ def do_list_resets():
         cprint(NEON_YELLOW, "No reset schedules saved.")
         return
     cprint(NEON_CYAN, f"Saved reset entries ({len(entries)}):")
-    now = _now_ist() # Get current time once for efficiency
+    now = _now_local() # Get current time once for efficiency
     for e in entries:
         id_ = e.get("id")
         email = e.get("email") or "<no-email>"
-        saved = e.get("saved_string")
         # saved_at = e.get("saved_at") # This is an unused variable reported by vulture, I will remove it.
-        reset_ist = e.get("reset_ist")
+        reset_at_str = e.get("reset_ist")
         
         remaining_str = "Expired"
         try:
-            reset_dt = datetime.fromisoformat(reset_ist)
-            reset_ist_s = reset_dt.strftime("%I:%M %p IST")
+            reset_dt = datetime.fromisoformat(reset_at_str)
+            # Display in local time format
+            reset_at_display = reset_dt.strftime("%I:%M %p")
             
             delta = reset_dt - now
             if delta.total_seconds() > 0:
@@ -336,9 +336,9 @@ def do_list_resets():
                 remaining_str = f"In {hours}h {minutes}m"
             
         except Exception:
-            reset_ist_s = reset_ist # Fallback if parsing fails
+            reset_at_display = reset_at_str # Fallback if parsing fails
             
-        print(f"  {id_:8}  {email:25}  {reset_ist_s:14}  {remaining_str:15}") # New format, removed saved: {saved}
+        print(f"  {id_:8}  {email:25}  {reset_at_display:14}  {remaining_str:15}") # Removed IST suffix
     print()
 
 def do_next_reset(identifier: Optional[str] = None):
@@ -352,7 +352,7 @@ def do_next_reset(identifier: Optional[str] = None):
         cprint(NEON_YELLOW, "No reset schedules saved.")
         return
 
-    now = _now_ist()
+    now = _now_local()
 
     # filter
     filtered = entries
@@ -393,7 +393,7 @@ def do_next_reset(identifier: Optional[str] = None):
     id_ = next_entry.get("id")
 
     cprint(NEON_GREEN, f"\nNext reset for {email} (id={id_}): {hours} hours {minutes} minutes")
-    cprint(NEON_CYAN, f"Reset time (IST):   {next_dt.strftime('%I:%M %p IST')}")
+    cprint(NEON_CYAN, f"Reset time:         {next_dt.strftime('%I:%M %p')}")
     print()
 
 def do_capture_reset(pasted_text: str = None):
@@ -455,7 +455,7 @@ def add_24h_cooldown_for_email(email: str) -> Dict[str, Any]:
     Manually adds a 24-hour cooldown for the given email starting NOW.
     Used when switching OUT of an account.
     """
-    now = _now_ist()
+    now = _now_local()
     reset_dt = now + timedelta(hours=24)
     
     entry = {

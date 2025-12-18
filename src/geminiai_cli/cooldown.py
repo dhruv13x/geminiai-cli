@@ -169,9 +169,34 @@ def record_switch(email: str, args=None):
     # Now, get the most up-to-date data (either from cloud or local).
     data = get_cooldown_data()
     
-    # Get current time in ISO 8601 format and update the record.
-    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    data[email] = now_iso
+    now = datetime.datetime.now().astimezone()
+    now_iso = now.isoformat()
+
+    # Get existing record or handle migration from old string-only format
+    existing = data.get(email)
+    if isinstance(existing, str):
+        # Migrate old format to new dict format
+        data[email] = {
+            "first_used": existing,
+            "last_used": now_iso
+        }
+    elif isinstance(existing, dict):
+        # Already in new format, update last_used
+        data[email]["last_used"] = now_iso
+        
+        # Reset first_used if it's been more than 24 hours since the last session start
+        try:
+            first_ts = datetime.datetime.fromisoformat(existing.get("first_used", now_iso))
+            if (now - first_ts).total_seconds() > 86400: # 24 hours
+                data[email]["first_used"] = now_iso
+        except Exception:
+            data[email]["first_used"] = now_iso
+    else:
+        # New account
+        data[email] = {
+            "first_used": now_iso,
+            "last_used": now_iso
+        }
     
     try:
         # Write the newly merged data back to the local file.
@@ -220,10 +245,11 @@ def do_cooldown_list(args=None):
     table.add_column("Account", style="cyan")
     table.add_column("Status", justify="center")
     table.add_column("Availability", style="white")
+    table.add_column("First Used", style="dim")
     table.add_column("Last Used", style="dim")
     table.add_column("Next Scheduled Reset", style="magenta")
 
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now().astimezone()
     
     # Helper for relative time
     def format_delta(delta):
@@ -243,79 +269,97 @@ def do_cooldown_list(args=None):
     sorted_emails = sorted(list(all_emails))
 
     for email in sorted_emails:
-        # --- Analyze Cooldown (Last Switch) ---
-        last_used_str = "-"
-        availability_str = "Now"
-        is_locked = False
+        # --- 1. Tool-Enforced Quota Reset (First Used + 24h Rule) ---
+        first_ts = None
+        last_ts = None
+        tool_unlock_time = None
         
         if email in cooldown_map:
-            try:
-                last_ts = datetime.datetime.fromisoformat(cooldown_map[email])
-                if last_ts.tzinfo is None:
-                    last_ts = last_ts.replace(tzinfo=datetime.timezone.utc)
-                
-                # Calculate ago
-                ago_delta = now - last_ts
-                last_used_str = format_ago(ago_delta)
-                
-                # Calculate Lockout
-                unlock_time = last_ts + datetime.timedelta(hours=COOLDOWN_HOURS)
-                remaining = unlock_time - now
-                
-                if remaining.total_seconds() > 0:
-                    is_locked = True
-                    availability_str = format_delta(remaining)
-            except ValueError:
-                last_used_str = "Invalid TS"
+            entry_data = cooldown_map[email]
+            if isinstance(entry_data, dict):
+                first_ts_raw = entry_data.get("first_used")
+                last_ts_raw = entry_data.get("last_used")
+            else:
+                first_ts_raw = last_ts_raw = entry_data
 
-        # --- Analyze Resets (Next Scheduled) ---
-        next_reset_str = "-"
-        has_upcoming_reset = False
+            try:
+                if first_ts_raw:
+                    first_ts = datetime.datetime.fromisoformat(first_ts_raw)
+                    if first_ts.tzinfo is None:
+                        first_ts = first_ts.replace(tzinfo=datetime.timezone.utc)
+                    # Quota Reset is 24h from FIRST use
+                    tool_unlock_time = first_ts + datetime.timedelta(hours=COOLDOWN_HOURS)
+                
+                if last_ts_raw:
+                    last_ts = datetime.datetime.fromisoformat(last_ts_raw)
+                    if last_ts.tzinfo is None:
+                        last_ts = last_ts.replace(tzinfo=datetime.timezone.utc)
+            except ValueError:
+                pass
+
+        # --- 2. Hard Resets (Captured from Gemini) ---
+        gemini_reset_dt = None
+        is_auto_cooldown = False
         
-        # Filter resets for this email, find earliest future one
         my_resets = []
         for r in resets_list:
             if r.get("email", "").lower() == email:
                 try:
-                    # resets are stored as ISO strings (likely with timezone info)
-                    # We need to compare safely.
                     r_ts = datetime.datetime.fromisoformat(r["reset_ist"])
                     if r_ts.tzinfo is None:
-                         # If raw stored without TZ, assume local/UTC? 
-                         # Existing logic uses IST timezone in reset_helpers, so it should have offsets.
-                         # We'll blindly compare to 'now' if possible or just display.
-                         pass
-                    my_resets.append(r_ts)
+                         r_ts = r_ts.astimezone()
+                    is_auto = "Auto-detected" in r.get("saved_string", "")
+                    my_resets.append((r_ts, is_auto))
                 except Exception:
                     pass
         
-        # Sort and find first future
-        my_resets.sort()
-        # We need to compare with 'now'. If resets are timezone aware (e.g. IST), 
-        # and 'now' is UTC, python handles it if both have tzinfo.
-        for r_ts in my_resets:
+        my_resets.sort(key=lambda x: x[0])
+        for r_ts, auto in my_resets:
             if r_ts > now:
-                # Found future reset
-                diff = r_ts - now
-                next_reset_str = format_delta(diff)
-                has_upcoming_reset = True
+                gemini_reset_dt = r_ts
+                is_auto_cooldown = auto
                 break
 
-        # --- Determine Final Status ---
-        if is_locked:
-            status = "[bold red]🔴 COOLDOWN[/]"
+        # --- 3. Calculate Availability (Max of both) ---
+        final_unlock_time = None
+        if tool_unlock_time and gemini_reset_dt:
+            final_unlock_time = max(tool_unlock_time, gemini_reset_dt)
+        else:
+            final_unlock_time = tool_unlock_time or gemini_reset_dt
+
+        availability_str = "Now"
+        avail_style = "[bold green]Now[/]"
+        is_locked = False
+
+        if final_unlock_time and final_unlock_time > now:
+            is_locked = True
+            delta = final_unlock_time - now
+            availability_str = format_delta(delta)
             avail_style = "[red]" + availability_str + "[/]"
-        elif has_upcoming_reset:
-             # Not strictly locked by 24h rule, but has a scheduled event
-            status = "[bold yellow]🟡 SCHEDULED[/]"
-            avail_style = "[green]Now[/]"
+
+        # --- 4. Format Display Columns ---
+        first_used_str = first_ts.astimezone().strftime('%I:%M %p') if first_ts else "-"
+        last_used_str = format_ago(now - last_ts) if last_ts else "-"
+
+        next_reset_str = "-"
+        if gemini_reset_dt and not is_auto_cooldown:
+            # Only show "Next Scheduled Reset" if it was a REAL captured reset
+            diff = gemini_reset_dt - now
+            next_reset_str = f"[magenta]{format_delta(diff)}[/]"
+
+        # Determine Status
+        if is_locked:
+            if gemini_reset_dt and not is_auto_cooldown and gemini_reset_dt >= (tool_unlock_time or gemini_reset_dt):
+                status = "[bold yellow]🟡 SCHEDULED[/]"
+            else:
+                status = "[bold red]🔴 COOLDOWN[/]"
         else:
             status = "[bold green]🟢 READY[/]"
-            avail_style = "[bold green]Now[/]"
 
-        table.add_row(email, status, avail_style, last_used_str, next_reset_str)
+        table.add_row(email, status, avail_style, first_used_str, last_used_str, next_reset_str)
 
     console.print("\n[bold white]📊 Account Dashboard[/]")
+    console.print(f"[dim]Current Local Time: {now.strftime('%I:%M %p')}[/]\n")
     console.print(table)
     console.print()
 

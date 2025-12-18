@@ -18,7 +18,7 @@ def do_stats(args=None):
 
     # Aggregate by day
     # We want to show 7 days up to today, even if count is 0
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now().astimezone()
     date_counts = defaultdict(int)
 
     for e in events:
@@ -29,11 +29,10 @@ def do_stats(args=None):
             ts = datetime.datetime.fromisoformat(ts_str)
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=datetime.timezone.utc)
-            # Localize? For now, stick to UTC or local date
-            # Ideally user wants local date.
-            # Convert to local time approximately by adding timezone offset if known?
-            # Or just use UTC date.
-            date_key = ts.strftime("%Y-%m-%d")
+            
+            # Localize to machine time
+            local_ts = ts.astimezone()
+            date_key = local_ts.strftime("%Y-%m-%d")
             date_counts[date_key] += 1
         except ValueError:
             continue

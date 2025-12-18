@@ -32,8 +32,8 @@ def test_run_cmd_safe_exception(mock_run):
 @patch("geminiai_cli.reset_helpers._save_store")
 def test_add_reset_entry(mock_save, mock_load):
     # Mock time to avoid timezone issues
-    with patch("geminiai_cli.reset_helpers._now_ist") as mock_now:
-        mock_now.return_value = datetime(2025, 10, 22, 10, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    with patch("geminiai_cli.reset_helpers._now_local") as mock_now:
+        mock_now.return_value = datetime(2025, 10, 22, 10, 0).astimezone()
         entry = reset_helpers.add_reset_entry("11:00 AM", "test@test.com")
         assert entry["email"] == "test@test.com"
         assert "reset_ist" in entry
@@ -45,7 +45,7 @@ def test_add_reset_entry_invalid():
 @patch("geminiai_cli.reset_helpers._load_store")
 @patch("geminiai_cli.reset_helpers._save_store")
 def test_cleanup_expired(mock_save, mock_load):
-    now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    now = datetime.now().astimezone()
     past = now - timedelta(hours=1)
     future = now + timedelta(hours=1)
 
@@ -80,7 +80,7 @@ def test_do_list_resets_empty(mock_load):
 @patch("geminiai_cli.reset_helpers._load_and_cleanup_store")
 def test_do_list_resets(mock_load):
     mock_load.return_value = [
-        {"id": "1", "email": "t@t.com", "reset_ist": datetime.now().isoformat()}
+        {"id": "1", "email": "t@t.com", "reset_ist": datetime.now().astimezone().isoformat()}
     ]
     reset_helpers.do_list_resets()
 
@@ -90,7 +90,7 @@ def test_do_next_reset_empty(mock_load):
 
 @patch("geminiai_cli.reset_helpers._load_and_cleanup_store")
 def test_do_next_reset(mock_load):
-    future = datetime.now(timezone(timedelta(hours=5, minutes=30))) + timedelta(hours=1)
+    future = datetime.now().astimezone() + timedelta(hours=1)
     mock_load.return_value = [
         {"id": "1", "email": "t@t.com", "reset_ist": future.isoformat()}
     ]
@@ -148,27 +148,27 @@ def test_parse_email_from_text():
     assert reset_helpers._parse_email_from_text("test test@example.com test") == "test@example.com"
     assert reset_helpers._parse_email_from_text("no email") is None
 
-@patch("geminiai_cli.reset_helpers._now_ist")
+@patch("geminiai_cli.reset_helpers._now_local")
 def test_compute_next_ist_for_time_am(mock_now):
-    mock_now.return_value = datetime(2023, 1, 1, 9, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    mock_now.return_value = datetime(2023, 1, 1, 9, 0).astimezone()
     # 10 AM same day
-    dt = reset_helpers._compute_next_ist_for_time(10, 0, "AM")
+    dt = reset_helpers._compute_next_local_for_time(10, 0, "AM")
     assert dt.hour == 10
     assert dt.day == 1
 
-@patch("geminiai_cli.reset_helpers._now_ist")
+@patch("geminiai_cli.reset_helpers._now_local")
 def test_compute_next_ist_for_time_pm(mock_now):
-    mock_now.return_value = datetime(2023, 1, 1, 9, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    mock_now.return_value = datetime(2023, 1, 1, 9, 0).astimezone()
     # 1 PM (13:00) same day
-    dt = reset_helpers._compute_next_ist_for_time(1, 0, "PM")
+    dt = reset_helpers._compute_next_local_for_time(1, 0, "PM")
     assert dt.hour == 13
     assert dt.day == 1
 
-@patch("geminiai_cli.reset_helpers._now_ist")
+@patch("geminiai_cli.reset_helpers._now_local")
 def test_compute_next_ist_for_time_next_day(mock_now):
-    mock_now.return_value = datetime(2023, 1, 1, 11, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    mock_now.return_value = datetime(2023, 1, 1, 11, 0).astimezone()
     # 10 AM next day
-    dt = reset_helpers._compute_next_ist_for_time(10, 0, "AM")
+    dt = reset_helpers._compute_next_local_for_time(10, 0, "AM")
     assert dt.hour == 10
     assert dt.day == 2
 
@@ -211,7 +211,7 @@ def test_do_next_reset_no_entries(mock_load):
 
 @patch("geminiai_cli.reset_helpers._load_and_cleanup_store")
 def test_do_next_reset_found(mock_load):
-    future = datetime.now(timezone(timedelta(hours=5, minutes=30))) + timedelta(hours=1)
+    future = datetime.now().astimezone() + timedelta(hours=1)
     mock_load.return_value = [
         {"id": "1", "email": "t@t.com", "reset_ist": future.isoformat()}
     ]
@@ -220,14 +220,14 @@ def test_do_next_reset_found(mock_load):
 @patch("geminiai_cli.reset_helpers._load_and_cleanup_store")
 def test_do_next_reset_not_found(mock_load):
     mock_load.return_value = [
-        {"id": "1", "email": "other@t.com", "reset_ist": datetime.now().isoformat()}
+        {"id": "1", "email": "other@t.com", "reset_ist": datetime.now().astimezone().isoformat()}
     ]
     reset_helpers.do_next_reset("t@t.com") # Filter by email
 
 @patch("geminiai_cli.reset_helpers._load_and_cleanup_store")
 @patch("geminiai_cli.reset_helpers.cleanup_expired")
 def test_do_next_reset_expired_now(mock_cleanup, mock_load):
-    past = datetime.now(timezone(timedelta(hours=5, minutes=30))) - timedelta(seconds=1)
+    past = datetime.now().astimezone() - timedelta(seconds=1)
     mock_load.return_value = [
         {"id": "1", "email": "t@t.com", "reset_ist": past.isoformat()}
     ]
@@ -299,22 +299,22 @@ def test_load_store_not_list():
             store = reset_helpers._load_store()
             assert len(store) == 0
 
-@patch("geminiai_cli.reset_helpers._now_ist")
+@patch("geminiai_cli.reset_helpers._now_local")
 def test_compute_next_ist_for_time_12_am(mock_now):
-    mock_now.return_value = datetime(2023, 1, 1, 0, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
-    dt = reset_helpers._compute_next_ist_for_time(12, 0, "AM")
+    mock_now.return_value = datetime(2023, 1, 1, 0, 0).astimezone()
+    dt = reset_helpers._compute_next_local_for_time(12, 0, "AM")
     assert dt.hour == 0
 
-@patch("geminiai_cli.reset_helpers._now_ist")
+@patch("geminiai_cli.reset_helpers._now_local")
 def test_compute_next_ist_for_time_12_pm(mock_now):
-    mock_now.return_value = datetime(2023, 1, 1, 0, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
-    dt = reset_helpers._compute_next_ist_for_time(12, 0, "PM")
+    mock_now.return_value = datetime(2023, 1, 1, 0, 0).astimezone()
+    dt = reset_helpers._compute_next_local_for_time(12, 0, "PM")
     assert dt.hour == 12
 
-@patch("geminiai_cli.reset_helpers._now_ist")
+@patch("geminiai_cli.reset_helpers._now_local")
 def test_compute_next_ist_for_time_24h(mock_now):
-    mock_now.return_value = datetime(2023, 1, 1, 0, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
-    dt = reset_helpers._compute_next_ist_for_time(15, 0)
+    mock_now.return_value = datetime(2023, 1, 1, 0, 0).astimezone()
+    dt = reset_helpers._compute_next_local_for_time(15, 0)
     assert dt.hour == 15
 
 @patch("geminiai_cli.reset_helpers.save_reset_time_from_output", return_value=True)
@@ -356,7 +356,7 @@ def test_load_and_cleanup_store_removed(mock_cprint, mock_load, mock_cleanup):
 
 @patch("geminiai_cli.reset_helpers._load_and_cleanup_store")
 def test_do_list_resets_future(mock_load):
-    future = datetime.now(timezone(timedelta(hours=5, minutes=30))) + timedelta(hours=1, minutes=30)
+    future = datetime.now().astimezone() + timedelta(hours=1, minutes=30)
     mock_load.return_value = [
         {"id": "1", "email": "t@t.com", "reset_ist": future.isoformat()}
     ]
@@ -374,11 +374,11 @@ def test_do_next_reset_malformed_entries(mock_cprint, mock_load):
     assert any("No valid upcoming resets" in str(args) for args in mock_cprint.call_args_list)
 
 # Tests for Cooldown & Cloud Sync
-@patch("geminiai_cli.reset_helpers._now_ist")
+@patch("geminiai_cli.reset_helpers._now_local")
 @patch("geminiai_cli.reset_helpers._load_store")
 @patch("geminiai_cli.reset_helpers._save_store")
 def test_add_24h_cooldown_for_email(mock_save, mock_load, mock_now):
-    mock_now.return_value = datetime(2023, 1, 1, 0, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    mock_now.return_value = datetime(2023, 1, 1, 0, 0).astimezone()
     mock_load.return_value = [{"email": "test@test.com", "id": "old"}]
 
     entry = reset_helpers.add_24h_cooldown_for_email("test@test.com")

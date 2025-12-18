@@ -42,23 +42,36 @@ def get_recommendation() -> Optional[Recommendation]:
         return None
 
     candidates = []
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now().astimezone()
 
     for email in all_emails:
-        # Determine Last Used
+        # Determine First/Last timestamps
+        first_used_dt = None
         last_used_dt = None
         if email in cooldown_map:
+            entry_data = cooldown_map[email]
+            if isinstance(entry_data, dict):
+                first_ts_raw = entry_data.get("first_used")
+                last_ts_raw = entry_data.get("last_used")
+            else:
+                first_ts_raw = last_ts_raw = entry_data
+
             try:
-                last_used_dt = datetime.datetime.fromisoformat(cooldown_map[email])
-                if last_used_dt.tzinfo is None:
-                    last_used_dt = last_used_dt.replace(tzinfo=datetime.timezone.utc)
+                if first_ts_raw:
+                    first_used_dt = datetime.datetime.fromisoformat(first_ts_raw)
+                    if first_used_dt.tzinfo is None:
+                        first_used_dt = first_used_dt.replace(tzinfo=datetime.timezone.utc)
+                if last_ts_raw:
+                    last_used_dt = datetime.datetime.fromisoformat(last_ts_raw)
+                    if last_used_dt.tzinfo is None:
+                        last_used_dt = last_used_dt.replace(tzinfo=datetime.timezone.utc)
             except ValueError:
                 pass
 
-        # Determine Cooldown Status (24h rule)
+        # Determine Cooldown Status (24h from FIRST use)
         is_locked = False
-        if last_used_dt:
-            unlock_time = last_used_dt + datetime.timedelta(hours=COOLDOWN_HOURS)
+        if first_used_dt:
+            unlock_time = first_used_dt + datetime.timedelta(hours=COOLDOWN_HOURS)
             if unlock_time > now:
                 is_locked = True
 
@@ -66,14 +79,13 @@ def get_recommendation() -> Optional[Recommendation]:
         next_reset_dt = None
         has_future_reset = False
 
-        # Find earliest future reset for this email
         my_resets = []
         for r in resets_list:
             if r.get("email", "").lower() == email:
                 try:
                     r_ts = datetime.datetime.fromisoformat(r["reset_ist"])
                     if r_ts.tzinfo is None:
-                        r_ts = r_ts.replace(tzinfo=datetime.timezone.utc)
+                        r_ts = r_ts.astimezone()
                     my_resets.append(r_ts)
                 except Exception:
                     pass
@@ -85,10 +97,12 @@ def get_recommendation() -> Optional[Recommendation]:
                 break
 
         # Assign Status
-        if is_locked:
-            status = AccountStatus.COOLDOWN
-        elif has_future_reset:
-            status = AccountStatus.SCHEDULED
+        if is_locked or (has_future_reset and next_reset_dt > now):
+            # If it's tool-locked or gemini-locked
+            if is_locked:
+                status = AccountStatus.COOLDOWN
+            else:
+                status = AccountStatus.SCHEDULED
         else:
             status = AccountStatus.READY
 
@@ -120,6 +134,7 @@ def get_recommendation() -> Optional[Recommendation]:
     # Helper for sorting
     def sort_key(rec):
         if rec.last_used is None:
+            # Min aware datetime
             return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
         return rec.last_used
 
@@ -146,7 +161,7 @@ def do_recommend(args=None):
 
     if rec.last_used:
         # formatting
-        diff = datetime.datetime.now(datetime.timezone.utc) - rec.last_used
+        diff = datetime.datetime.now().astimezone() - rec.last_used
         days = diff.days
         hours = diff.seconds // 3600
         console.print(f"Last used: [dim]{days}d {hours}h ago[/]")

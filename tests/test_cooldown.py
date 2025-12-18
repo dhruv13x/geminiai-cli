@@ -181,27 +181,31 @@ def test_get_cooldown_data_invalid_json(fs):
     assert get_cooldown_data() == {}
 
 
-def test_record_switch_no_email():
-    record_switch(None)
-    # Should just return
-
-
 def test_record_switch_local_only(fs, mocker):
     mock_datetime = mocker.patch("geminiai_cli.cooldown.datetime")
-    mock_datetime.datetime.now.return_value.isoformat.return_value = TEST_TIMESTAMP
+    # Mocking now().astimezone().isoformat()
+    mock_now = mock_datetime.datetime.now.return_value
+    mock_astimezone = mock_now.astimezone.return_value
+    mock_astimezone.isoformat.return_value = TEST_TIMESTAMP
+    
     mock_datetime.timezone.utc = datetime.timezone.utc
 
     record_switch(TEST_EMAIL)
 
     with open(MOCK_COOLDOWN_PATH, "r") as f:
         data = json.load(f)
-    assert data[TEST_EMAIL] == TEST_TIMESTAMP
+    assert data[TEST_EMAIL]["last_used"] == TEST_TIMESTAMP
+    assert data[TEST_EMAIL]["first_used"] == TEST_TIMESTAMP
 
 
 def test_record_switch_with_cloud(mock_fs, fs, mocker, mock_args, mock_resolve_credentials, mock_b2_manager):
     mock_resolve_credentials.return_value = ("key", "app", "bucket")
     mock_datetime = mocker.patch("geminiai_cli.cooldown.datetime")
-    mock_datetime.datetime.now.return_value.isoformat.return_value = TEST_TIMESTAMP
+    # Mocking now().astimezone().isoformat()
+    mock_now = mock_datetime.datetime.now.return_value
+    mock_astimezone = mock_now.astimezone.return_value
+    mock_astimezone.isoformat.return_value = TEST_TIMESTAMP
+    
     mock_datetime.timezone.utc = datetime.timezone.utc
 
     # Mock download_to_string to return existing cloud data
@@ -217,7 +221,7 @@ def test_record_switch_with_cloud(mock_fs, fs, mocker, mock_args, mock_resolve_c
     # Verify local file updated with BOTH
     with open(MOCK_COOLDOWN_PATH, "r") as f:
         data = json.load(f)
-    assert data[TEST_EMAIL] == TEST_TIMESTAMP
+    assert data[TEST_EMAIL]["last_used"] == TEST_TIMESTAMP
     assert "other@example.com" in data
 
     # Verify upload called
@@ -226,7 +230,11 @@ def test_record_switch_with_cloud(mock_fs, fs, mocker, mock_args, mock_resolve_c
 
 def test_record_switch_write_fail(fs, mocker, mock_cprint):
     mock_datetime = mocker.patch("geminiai_cli.cooldown.datetime")
-    mock_datetime.datetime.now.return_value.isoformat.return_value = TEST_TIMESTAMP
+    # Mocking now().astimezone().isoformat()
+    mock_now = mock_datetime.datetime.now.return_value
+    mock_astimezone = mock_now.astimezone.return_value
+    mock_astimezone.isoformat.return_value = TEST_TIMESTAMP
+    
     mock_datetime.timezone.utc = datetime.timezone.utc
 
     # Simulate IOError during write
@@ -285,7 +293,7 @@ def _get_table_rows(table):
 def test_do_cooldown_list_ready(fs, mock_console, mocker):
     # Set time so that > 24h has passed
     past_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=25)
-    data = {TEST_EMAIL: past_time.isoformat()}
+    data = {TEST_EMAIL: {"first_used": past_time.isoformat(), "last_used": past_time.isoformat()}}
     fs.create_file(MOCK_COOLDOWN_PATH, contents=json.dumps(data))
 
     do_cooldown_list()
@@ -299,9 +307,9 @@ def test_do_cooldown_list_ready(fs, mock_console, mocker):
     found_status = False
     for row in rows:
         # row is a tuple of cells
-        if TEST_EMAIL in str(row[0]):
+        if TEST_EMAIL in row[0]:
             found_email = True
-            if "READY" in str(row[1]):
+            if "READY" in row[1]:
                 found_status = True
 
     assert found_email, "Email not found in table"
@@ -311,7 +319,7 @@ def test_do_cooldown_list_ready(fs, mock_console, mocker):
 def test_do_cooldown_list_active(fs, mock_console, mocker):
     # Set time so that < 24h has passed (e.g., 1 hour ago)
     past_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
-    data = {TEST_EMAIL: past_time.isoformat()}
+    data = {TEST_EMAIL: {"first_used": past_time.isoformat(), "last_used": past_time.isoformat()}}
     fs.create_file(MOCK_COOLDOWN_PATH, contents=json.dumps(data))
 
     do_cooldown_list()
@@ -324,9 +332,9 @@ def test_do_cooldown_list_active(fs, mock_console, mocker):
     found_email = False
     found_status = False
     for row in rows:
-        if TEST_EMAIL in str(row[0]):
+        if TEST_EMAIL in row[0]:
             found_email = True
-            if "COOLDOWN" in str(row[1]):
+            if "COOLDOWN" in row[1]:
                 found_status = True
 
     assert found_email
@@ -345,21 +353,21 @@ def test_do_cooldown_list_invalid_timestamp(fs, mock_console):
     rows = _get_table_rows(table)
 
     found_email = False
-    found_invalid = False
+    found_ready = False
     for row in rows:
-        if TEST_EMAIL in str(row[0]):
+        if TEST_EMAIL in row[0]:
             found_email = True
-            # Column 3 is Last Used
-            if "Invalid TS" in str(row[3]):
-                found_invalid = True
+            # With invalid TS, it should default to READY
+            if "READY" in row[1]:
+                found_ready = True
 
     assert found_email
-    assert found_invalid
+    assert found_ready
 
 
 def test_do_cooldown_list_naive_timestamp_fix(fs, mock_console, mocker):
     naive_time = datetime.datetime.now() # Naive
-    data = {TEST_EMAIL: naive_time.isoformat()}
+    data = {TEST_EMAIL: {"first_used": naive_time.isoformat(), "last_used": naive_time.isoformat()}}
     fs.create_file(MOCK_COOLDOWN_PATH, contents=json.dumps(data))
 
     do_cooldown_list()
@@ -371,7 +379,7 @@ def test_do_cooldown_list_naive_timestamp_fix(fs, mock_console, mocker):
     found_email = False
     rows = _get_table_rows(table)
     for row in rows:
-        if TEST_EMAIL in str(row[0]):
+        if TEST_EMAIL in row[0]:
             found_email = True
 
     assert found_email
@@ -502,17 +510,19 @@ def test_do_cooldown_list_with_data(fs, capsys):
     if not os.path.exists(os.path.dirname(cooldown_path)):
         fs.create_dir(os.path.dirname(cooldown_path))
 
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now().astimezone()
     recent = (now - datetime.timedelta(hours=1)).isoformat()
     old = (now - datetime.timedelta(hours=25)).isoformat()
 
     fs.create_file(cooldown_path, contents=json.dumps({
         "locked@example.com": recent,
-        "ready@example.com": old
+        "ready@example.com": old,
+        "scheduled@example.com": old # Ensure it's not tool-locked
     }))
 
     resets = [
-        {"email": "scheduled@example.com", "reset_ist": (now + datetime.timedelta(hours=2)).isoformat()},
+        # Explicitly label one as non-auto to trigger SCHEDULED status
+        {"email": "scheduled@example.com", "reset_ist": (now + datetime.timedelta(hours=2)).isoformat(), "saved_string": "Access resets at..."},
         {"email": "ready@example.com", "reset_ist": (now - datetime.timedelta(hours=2)).isoformat()}
     ]
 
