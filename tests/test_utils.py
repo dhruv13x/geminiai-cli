@@ -1,8 +1,9 @@
 # tests/test_utils.py
 
 import pytest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 import subprocess
+import os
 from geminiai_cli.utils import run, read_file, run_capture
 from geminiai_cli.reset_helpers import run_cmd_safe
 
@@ -65,16 +66,22 @@ def test_run_exception(mock_cprint, mock_exit, mock_run):
     mock_exit.assert_called_with(1)
     mock_cprint.assert_called()
 
-@patch("os.path.exists", return_value=False)
-def test_read_file_not_exists(mock_exists):
+def test_read_file_not_exists(fs):
+    # fs is empty, file doesn't exist
     assert read_file("test.txt") == ""
 
-@patch("os.path.exists", return_value=True)
-@patch("builtins.open", new_callable=mock_open, read_data="hello")
-def test_read_file_exists(mock_exists, mock_file):
+def test_read_file_exists(fs):
+    fs.create_file("test.txt", contents="hello")
     assert read_file("test.txt") == "hello"
 
-@patch("os.path.exists", return_value=True)
-@patch("builtins.open", side_effect=Exception)
-def test_read_file_exception(mock_exists, mock_file):
-    assert read_file("test.txt") == ""
+def test_read_file_exception(fs):
+    # Simulate an exception (e.g., permission denied)
+    fs.create_file("test.txt", contents="hello")
+    os.chmod("test.txt", 0o000) # Make unreadable
+
+    # pyfakefs handles permission errors mostly correctly, but read_file swallows exceptions
+    # Let's see if read_file handles PermissionError
+    # If not, we might need to patch open to raise exception if we want to test that specific branch
+
+    with patch("builtins.open", side_effect=Exception("Read error")):
+         assert read_file("test.txt") == ""

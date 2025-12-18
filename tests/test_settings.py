@@ -1,32 +1,29 @@
 # tests/test_settings.py
 
 import pytest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 import json
 import os
-from geminiai_cli.settings import load_settings, save_settings, set_setting, get_setting, remove_setting, list_settings
+from geminiai_cli.settings import load_settings, save_settings, set_setting, get_setting, remove_setting, list_settings, CONFIG_FILE
 
 CONFIG_CONTENT = '{"key1": "value1", "key2": "value2"}'
+# Use the CONFIG_FILE path defined in geminiai_cli.settings
 
-@patch("os.path.exists")
-def test_load_settings_exists(mock_exists):
-    mock_exists.return_value = True
-    with patch("builtins.open", mock_open(read_data=CONFIG_CONTENT)):
-        settings = load_settings()
-        assert settings["key1"] == "value1"
+def test_load_settings_exists(fs):
+    # fs handles file creation
+    fs.create_file(CONFIG_FILE, contents=CONFIG_CONTENT)
+    settings = load_settings()
+    assert settings["key1"] == "value1"
 
-@patch("os.path.exists")
-def test_load_settings_not_exists(mock_exists):
-    mock_exists.return_value = False
+def test_load_settings_not_exists(fs):
+    # File not created
     assert load_settings() == {}
 
-@patch("os.path.exists")
-def test_load_settings_malformed(mock_exists):
-    mock_exists.return_value = True
-    with patch("builtins.open", mock_open(read_data='{invalid}')):
-        # json.load usually raises JSONDecodeError, which load_settings catches
-        with patch("json.load", side_effect=json.JSONDecodeError("msg", "doc", 0)):
-             assert load_settings() == {}
+def test_load_settings_malformed(fs):
+    fs.create_file(CONFIG_FILE, contents='{invalid}')
+    # Should handle malformed JSON gracefully and return empty dict (or log error)
+    # The implementation likely catches JSONDecodeError
+    assert load_settings() == {}
 
 @patch("geminiai_cli.settings.save_settings")
 @patch("geminiai_cli.settings.load_settings")
@@ -60,8 +57,10 @@ def test_list_settings(mock_load):
     mock_load.return_value = {"a": 1}
     assert list_settings() == {"a": 1}
 
-@patch("os.makedirs")
-def test_save_settings(mock_makedirs):
-    with patch("builtins.open", mock_open()) as mock_file:
-        save_settings({"a": 1})
-        mock_file().write.assert_called()
+def test_save_settings(fs):
+    # fs handles file creation
+    save_settings({"a": 1})
+    assert os.path.exists(CONFIG_FILE)
+    with open(CONFIG_FILE, "r") as f:
+        data = json.load(f)
+    assert data == {"a": 1}

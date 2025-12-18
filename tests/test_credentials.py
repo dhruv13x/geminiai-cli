@@ -8,6 +8,9 @@ import requests
 
 class TestCredentials(unittest.TestCase):
 
+    # Note: We rely on pyfakefs (fs fixture) which is autouse in conftest.py
+    # So standard os operations work on the fake filesystem.
+
     @patch('geminiai_cli.credentials.os.environ', {})
     @patch('geminiai_cli.credentials.load_env_file')
     @patch('geminiai_cli.credentials.get_doppler_token')
@@ -81,21 +84,28 @@ class TestCredentials(unittest.TestCase):
     # --- New Tests for Coverage ---
 
     def test_load_env_file(self):
-        with patch("os.path.exists", return_value=True), \
-             patch("builtins.open", mock_open(read_data="KEY=VALUE\n#Comment\n\nBADLINE\nQUOTED='val'")):
-            env = load_env_file(".env")
-            self.assertEqual(env["KEY"], "VALUE")
-            self.assertEqual(env["QUOTED"], "val")
-            self.assertNotIn("BADLINE", env)
+        # Use fake fs instead of mock_open
+        with open(".env", "w") as f:
+            f.write("KEY=VALUE\n#Comment\n\nBADLINE\nQUOTED='val'")
+
+        env = load_env_file(".env")
+        self.assertEqual(env["KEY"], "VALUE")
+        self.assertEqual(env["QUOTED"], "val")
+        self.assertNotIn("BADLINE", env)
 
     def test_load_env_file_not_exists(self):
-        with patch("os.path.exists", return_value=False):
-            env = load_env_file("missing")
-            self.assertEqual(env, {})
+        # File doesn't exist in fake fs
+        env = load_env_file("missing")
+        self.assertEqual(env, {})
 
     def test_load_env_file_error(self):
-        with patch("os.path.exists", return_value=True), \
-             patch("builtins.open", side_effect=IOError):
+        # Create unreadable file
+        # We can't easily make file unreadable for root in some envs, but let's try or mock open
+        # Mocking builtins.open is safer for "Permission denied" simulation here.
+        # But wait, we can't use mock_open if pyfakefs is active for other tests?
+        # Tests are isolated.
+        # Using patch on open is fine.
+        with patch("builtins.open", side_effect=IOError):
             env = load_env_file(".env")
             self.assertEqual(env, {})
 
@@ -168,8 +178,11 @@ class TestCredentials(unittest.TestCase):
     @patch('geminiai_cli.credentials.get_setting', return_value=None)
     def test_resolve_credentials_fail_allowed(self, mock_get_setting, mock_token, mock_load):
         args = argparse.Namespace(b2_id=None, b2_key=None, bucket=None)
-        cid, ckey, cbucket = resolve_credentials(args, allow_fail=True)
-        self.assertIsNone(cid)
+        # We need to make sure c_id etc are None initially which they are by default in resolve_credentials logic
+        result = resolve_credentials(args, allow_fail=True)
+        # Should return None, None, None tuple, or maybe just None?
+        # The code: return None, None, None
+        self.assertEqual(result, (None, None, None))
 
     @patch('geminiai_cli.credentials.os.environ', {})
     @patch('geminiai_cli.credentials.load_env_file', return_value={})

@@ -15,20 +15,24 @@ from geminiai_cli import restore
 @patch("geminiai_cli.restore.shutil.move")
 @patch("shutil.rmtree")
 @patch("tempfile.mkdtemp", return_value="/tmp/restore_tmp")
-@patch("os.listdir")
-@patch("os.path.isfile", return_value=True)
-def test_restore_auto_success(mock_isfile, mock_listdir, mock_mkdtemp, mock_rmtree, mock_move, mock_replace, mock_makedirs, mock_exists, mock_run, mock_rec, mock_lock):
+def test_restore_auto_success(mock_mkdtemp, mock_rmtree, mock_move, mock_replace, mock_makedirs, mock_exists, mock_run, mock_rec, mock_lock, fs):
     # Setup mock recommendation
     mock_rec_obj = MagicMock()
     mock_rec_obj.email = "auto@example.com"
     mock_rec.return_value = mock_rec_obj
 
-    # Setup mock backups
-    mock_listdir.return_value = [
-        "2025-10-20_000000-other@example.com.gemini.tar.gz",
-        "2025-10-21_100000-auto@example.com.gemini.tar.gz", # Old
-        "2025-10-22_100000-auto@example.com.gemini.tar.gz", # Latest
-    ]
+    # Setup mock backups in search_dir
+    # restore.py uses DEFAULT_BACKUP_DIR by default which is ~/.geminiai-cli/backups
+    # But wait, we need to make sure we put files where restore.py looks.
+    # restore.py:
+    # args.search_dir = DEFAULT_BACKUP_DIR
+    # sd = os.path.abspath(os.path.expanduser(args.search_dir))
+
+    search_dir = os.path.expanduser("~/.geminiai-cli/backups")
+    fs.create_dir(search_dir)
+    fs.create_file(os.path.join(search_dir, "2025-10-20_000000-other@example.com.gemini.tar.gz"))
+    fs.create_file(os.path.join(search_dir, "2025-10-21_100000-auto@example.com.gemini.tar.gz")) # Old
+    fs.create_file(os.path.join(search_dir, "2025-10-22_100000-auto@example.com.gemini.tar.gz")) # Latest
 
     mock_run.return_value.returncode = 0
 
@@ -53,7 +57,7 @@ def test_restore_auto_success(mock_isfile, mock_listdir, mock_mkdtemp, mock_rmtr
 
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.get_recommendation")
-def test_restore_auto_no_recommendation(mock_rec, mock_lock):
+def test_restore_auto_no_recommendation(mock_rec, mock_lock, fs):
     mock_rec.return_value = None
     with patch("sys.argv", ["restore.py", "--auto"]):
         with pytest.raises(SystemExit) as e:
@@ -63,13 +67,14 @@ def test_restore_auto_no_recommendation(mock_rec, mock_lock):
 
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.get_recommendation")
-@patch("os.listdir")
-def test_restore_auto_no_backups_for_email(mock_listdir, mock_rec, mock_lock):
+def test_restore_auto_no_backups_for_email(mock_rec, mock_lock, fs):
     mock_rec_obj = MagicMock()
     mock_rec_obj.email = "auto@example.com"
     mock_rec.return_value = mock_rec_obj
 
-    mock_listdir.return_value = ["2025-10-20_000000-other@example.com.gemini.tar.gz"]
+    search_dir = os.path.expanduser("~/.geminiai-cli/backups")
+    fs.create_dir(search_dir)
+    fs.create_file(os.path.join(search_dir, "2025-10-20_000000-other@example.com.gemini.tar.gz"))
 
     with patch("sys.argv", ["restore.py", "--auto"]):
         with pytest.raises(SystemExit) as e:
@@ -78,19 +83,15 @@ def test_restore_auto_no_backups_for_email(mock_listdir, mock_rec, mock_lock):
 
 @patch("geminiai_cli.restore.acquire_lock")
 @patch("geminiai_cli.restore.get_recommendation")
-@patch("os.listdir")
-@patch("os.path.isfile", return_value=True)
-def test_find_latest_archive_backup_for_email_robustness(mock_isfile, mock_listdir, mock_rec, mock_lock):
+def test_find_latest_archive_backup_for_email_robustness(mock_rec, mock_lock, fs):
     # Test strict email matching
-    mock_listdir.return_value = [
-        "2025-10-20_000000-sue@example.com.gemini.tar.gz",
-        "2025-10-20_000000-josue@example.com.gemini.tar.gz",
-    ]
+    search_dir = os.path.expanduser("~/.geminiai-cli/backups")
+    fs.create_dir(search_dir)
+    fs.create_file(os.path.join(search_dir, "2025-10-20_000000-sue@example.com.gemini.tar.gz"))
+    fs.create_file(os.path.join(search_dir, "2025-10-20_000000-josue@example.com.gemini.tar.gz"))
 
-    # We want to match "sue@example.com".
-    # Current naive implementation "if email in filename" would match BOTH (since "sue@example.com" is in "josue@example.com")
-    # if looking for sue@example.com.
-    # Wait, 'sue@example.com' IS inside 'josue@example.com'.
-
-    # So we need to improve the function to parse the filename.
-    pass
+    # We test function directly
+    latest = restore.find_latest_archive_backup_for_email(search_dir, "sue@example.com")
+    assert latest is not None
+    assert "josue" not in latest
+    assert "sue@example.com" in latest

@@ -1,9 +1,9 @@
+
+import pytest
 import os
 import shutil
-import tempfile
 from pathlib import Path
 from unittest.mock import patch, Mock
-
 from geminiai_cli.chat import (
     backup_chat_history,
     restore_chat_history,
@@ -11,75 +11,72 @@ from geminiai_cli.chat import (
     resume_chat,
 )
 
-def test_backup_and_restore_chat_history():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        home_dir = Path(tmpdir)
-        gemini_home_dir = home_dir / ".gemini"
-        gemini_tmp_dir = gemini_home_dir / "tmp"
-        gemini_tmp_dir.mkdir(parents=True)
-        backup_path = home_dir / "chat_backups"
+# Note: Using pyfakefs via conftest.py (fs fixture), so file operations are already on fake fs.
 
-        # Create a dummy chat history file
-        (gemini_tmp_dir / "chat1.txt").write_text("This is a chat history.")
+def test_backup_and_restore_chat_history(fs):
+    home_dir = Path("/home/user")
+    gemini_home_dir = home_dir / ".gemini"
+    gemini_tmp_dir = gemini_home_dir / "tmp"
+    backup_path = home_dir / "chat_backups"
 
-        # 1. Backup the chat history
-        backup_chat_history(backup_path, gemini_home_dir)
+    fs.create_dir(gemini_tmp_dir)
+    fs.create_file(gemini_tmp_dir / "chat1.txt", contents="This is a chat history.")
 
-        # Verify the backup
-        backup_dir = backup_path / "tmp"
-        assert (backup_dir / "chat1.txt").exists()
-        assert (backup_dir / "chat1.txt").read_text() == "This is a chat history."
+    # 1. Backup the chat history
+    backup_chat_history(str(backup_path), str(gemini_home_dir))
 
-        # 2. Clear the original chat history
-        shutil.rmtree(gemini_tmp_dir)
-        gemini_tmp_dir.mkdir()
-        assert not (gemini_tmp_dir / "chat1.txt").exists()
+    # Verify the backup
+    backup_dir = backup_path / "tmp"
+    assert (backup_dir / "chat1.txt").exists()
 
-        # 3. Restore the chat history
-        restore_chat_history(backup_path, gemini_home_dir)
+    with open(backup_dir / "chat1.txt", "r") as f:
+        assert f.read() == "This is a chat history."
 
-        # Verify the restore
-        assert (gemini_tmp_dir / "chat1.txt").exists()
-        assert (gemini_tmp_dir / "chat1.txt").read_text() == "This is a chat history."
+    # 2. Clear the original chat history
+    shutil.rmtree(gemini_tmp_dir)
+    os.makedirs(gemini_tmp_dir)
+    assert not (gemini_tmp_dir / "chat1.txt").exists()
 
-def test_cleanup_chat_history():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        home_dir = Path(tmpdir)
-        gemini_home_dir = home_dir / ".gemini"
-        gemini_tmp_dir = gemini_home_dir / "tmp"
-        gemini_tmp_dir.mkdir(parents=True)
+    # 3. Restore the chat history
+    restore_chat_history(str(backup_path), str(gemini_home_dir))
 
-        # Create a dummy chat history file and a bin directory to be preserved
-        (gemini_tmp_dir / "chat1.txt").write_text("This is a chat history.")
-        (gemini_tmp_dir / "bin").mkdir()
-        (gemini_tmp_dir / "bin" / "some_executable").write_text("...")
+    # Verify the restore
+    assert (gemini_tmp_dir / "chat1.txt").exists()
+    with open(gemini_tmp_dir / "chat1.txt", "r") as f:
+        assert f.read() == "This is a chat history."
 
-        # Cleanup without force
-        with patch('builtins.input', return_value='y'):
-            cleanup_chat_history(dry_run=False, force=False, gemini_home_dir=gemini_home_dir)
+def test_cleanup_chat_history(fs):
+    home_dir = Path("/home/user")
+    gemini_home_dir = home_dir / ".gemini"
+    gemini_tmp_dir = gemini_home_dir / "tmp"
 
-        # Verify that chat1.txt is deleted and bin is preserved
-        assert not (gemini_tmp_dir / "chat1.txt").exists()
-        assert (gemini_tmp_dir / "bin").exists()
+    fs.create_dir(gemini_tmp_dir)
+    fs.create_file(gemini_tmp_dir / "chat1.txt", contents="This is a chat history.")
+    fs.create_dir(gemini_tmp_dir / "bin")
+    fs.create_file(gemini_tmp_dir / "bin" / "some_executable", contents="...")
+
+    # Cleanup without force (interactive yes)
+    with patch('builtins.input', return_value='y'):
+        cleanup_chat_history(dry_run=False, force=False, gemini_home_dir=str(gemini_home_dir))
+
+    # Verify that chat1.txt is deleted and bin is preserved
+    assert not (gemini_tmp_dir / "chat1.txt").exists()
+    assert (gemini_tmp_dir / "bin").exists()
 
 @patch("subprocess.run")
 def test_resume_chat(mock_run):
     resume_chat()
     mock_run.assert_called_once_with(["gemini", "--model", "pro", "--resume"])
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-from geminiai_cli.chat import backup_chat_history, restore_chat_history, cleanup_chat_history, resume_chat
-from geminiai_cli.config import NEON_RED, NEON_GREEN, NEON_YELLOW, NEON_CYAN
 
 def test_backup_chat_history_exception(fs, capsys):
     fs.create_dir("/home/user/.gemini/tmp")
     fs.create_file("/home/user/.gemini/tmp/chat.log")
     fs.create_dir("/backup")
 
-    gemini_home_dir = Path("/home/user/.gemini")
-    backup_path = Path("/backup")
+    gemini_home_dir = "/home/user/.gemini"
+    backup_path = "/backup"
 
+    # Patch shutil.copy to raise exception
     with patch("shutil.copy", side_effect=Exception("Copy failed")):
         backup_chat_history(backup_path, gemini_home_dir)
 
@@ -89,11 +86,15 @@ def test_backup_chat_history_exception(fs, capsys):
 def test_restore_chat_history_exception(fs, capsys):
     fs.create_dir("/backup/tmp")
     fs.create_file("/backup/tmp/chat.log")
-    fs.create_dir("/home/user/.gemini")
 
-    gemini_home_dir = Path("/home/user/.gemini")
-    backup_path = Path("/backup")
+    gemini_home_dir = "/home/user/.gemini"
+    # Ensure home dir exists without error
+    if not os.path.exists(gemini_home_dir):
+        fs.create_dir(gemini_home_dir)
 
+    backup_path = "/backup"
+
+    # Patch shutil.copy to raise exception
     with patch("shutil.copy", side_effect=Exception("Restore failed")):
         restore_chat_history(backup_path, gemini_home_dir)
 
@@ -102,8 +103,9 @@ def test_restore_chat_history_exception(fs, capsys):
 
 def test_cleanup_chat_history_listdir_exception(fs, capsys):
     fs.create_dir("/home/user/.gemini/tmp")
-    gemini_home_dir = Path("/home/user/.gemini")
+    gemini_home_dir = "/home/user/.gemini"
 
+    # Patch os.listdir to raise
     with patch("os.listdir", side_effect=Exception("Access denied")):
         cleanup_chat_history(dry_run=False, force=False, gemini_home_dir=gemini_home_dir)
 
@@ -114,7 +116,7 @@ def test_cleanup_chat_history_listdir_exception(fs, capsys):
 def test_cleanup_chat_history_interactive_cancel(fs, capsys):
     fs.create_dir("/home/user/.gemini/tmp")
     fs.create_file("/home/user/.gemini/tmp/chat.log")
-    gemini_home_dir = Path("/home/user/.gemini")
+    gemini_home_dir = "/home/user/.gemini"
 
     with patch("builtins.input", return_value="n"):
         cleanup_chat_history(dry_run=False, force=False, gemini_home_dir=gemini_home_dir)
@@ -125,8 +127,9 @@ def test_cleanup_chat_history_interactive_cancel(fs, capsys):
 def test_cleanup_chat_history_delete_exception(fs, capsys):
     fs.create_dir("/home/user/.gemini/tmp")
     fs.create_file("/home/user/.gemini/tmp/chat.log")
-    gemini_home_dir = Path("/home/user/.gemini")
+    gemini_home_dir = "/home/user/.gemini"
 
+    # Patch os.unlink to raise
     with patch("os.unlink", side_effect=Exception("Delete failed")):
         cleanup_chat_history(dry_run=False, force=True, gemini_home_dir=gemini_home_dir)
 
