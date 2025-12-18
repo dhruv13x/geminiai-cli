@@ -1,5 +1,15 @@
 # Changelog
 
+## [15.0.0] - 2025-12-18
+### Documentation
+- Update ROADMAP.md to V3 strategic format (#44)
+- upgrade README to Gold Standard V3.0 and add CONTRIBUTING.md (#43)
+### Other Changes
+- (#42)
+- update
+- update
+- update
+
 ## [14.0.1] - 2025-12-15
 ### Documentation
 - update README.md to V3 Gold Standard structure (#40)
