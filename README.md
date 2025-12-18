@@ -63,28 +63,20 @@ geminiai recommend
 
 ## ✨ Features
 
+### Core Capabilities
 *   **🛡️ God Level Backups**: Securely backup your configuration and chat history to **Local**, **AWS S3**, or **Backblaze B2** storage. Supports **GPG Encryption** for sensitive data.
 *   **🌍 Machine-Time Adaptive**: Automatically detects and uses your system's local timezone for all calculations and displays. No more manual IST/UTC conversions.
+*   **☁️ Unified Cloud Sync**: Seamlessly `push` and `pull` backups between your local machine and the cloud.
+
+### Smart Automation
 *   **⏱️ Smart Session Tracking**: Tracks "First Used" timestamps to accurately predict Gemini's 24-hour rolling quota resets.
 *   **🧠 Intelligent Rotation**: Automatically recommends the "healthiest" account based on session start times and Least Recently Used (LRU) logic.
-*   **☁️ Unified Cloud Sync**: Seamlessly `push` and `pull` backups between your local machine and the cloud.
 *   **🛡️ Accident Protection**: Safeguards your session data by preventing accidental account switches from resetting your 24-hour quota clock.
+
+### Diagnostics & Management
 *   **📊 Visual Analytics**: View beautiful, terminal-based bar charts of your usage history and account health.
 *   **🩺 Doctor Mode**: Built-in diagnostic tool to validate your environment, dependencies, and configuration health.
-
----
-
-## 📊 The Account Dashboard
-
-The `geminiai cooldown` command provides a real-time, comprehensive view of your account fleet.
-
-| Column | Type | Description |
-| :--- | :--- | :--- |
-| **First Used** | Static | The exact local time your daily quota session began. |
-| **Last Used** | Relative | How long ago your most recent activity occurred. |
-| **Availability** | Running | A dynamic countdown to your next full quota refresh (`First Used + 24h`). |
-| **Next Reset** | Running | Displays explicit "Access resets at..." times captured from Gemini. |
-| **Status** | Status | Color-coded state: `READY` 🟢, `COOLDOWN` 🔴, or `SCHEDULED` 🟡. |
+*   **🧹 Auto-Pruning**: Automatically cleans up old backups and temporary files to keep your storage efficient.
 
 ---
 
@@ -108,6 +100,16 @@ You can configure `geminiai-cli` using **Environment Variables**, **CLI Argument
 | `GEMINI_BACKUP_PASSWORD` | Password for GPG encryption. | None | No (for `--encrypt`) |
 | `DOPPLER_TOKEN` | Token for Doppler secrets management. | None | No |
 
+### Key CLI Arguments
+
+| Command | Flag | Description |
+| :--- | :--- | :--- |
+| `backup` | `--encrypt` | Encrypt the backup archive using GPG. |
+| `restore` | `--auto` | Automatically select and restore the latest backup for the best available account. |
+| `prune` | `--cloud-only` | Only remove old backups from cloud storage, keeping local copies. |
+| `config` | `--force` | Force overwrite existing configuration values. |
+| `cooldown` | `--reset-all` | **DANGER**: Wipe all cooldown data (local and cloud). |
+
 ---
 
 ## 🏗️ Architecture
@@ -127,22 +129,39 @@ src/geminiai_cli/
 └── stats.py           # 📊 Visualization Module
 ```
 
+### Data Flow
+1.  **User Input**: CLI args are parsed by `args.py` and routed by `cli.py`.
+2.  **Configuration**: Settings are loaded from `settings_cli.py` (merging Env, CLI, and Config).
+3.  **Action**:
+    - **Backup**: Compresses `~/.gemini`, encrypts (optional), and uploads via `CloudFactory`.
+    - **Restore**: Fetches list from cloud/local, decrypts, and extracts to `~/.gemini`.
+    - **Recommendation**: Queries `cooldown.py` for account status and selects the LRU "Ready" account.
+4.  **Persistence**: Usage stats and cooldowns are saved to JSON files in `~/.geminiai-cli`.
+
+---
+
+## 🐞 Troubleshooting
+
+| Error Message | Possible Cause | Solution |
+| :--- | :--- | :--- |
+| `ModuleNotFoundError: No module named 'geminiai_cli'` | Installation issue. | Run `pip install -e .` or ensure you are in the correct venv. |
+| `gpg: decryption failed: No secret key` | Missing GPG key or wrong password. | Ensure `GEMINI_BACKUP_PASSWORD` is set or the GPG key is imported. |
+| `ClientError: An error occurred (403) ...` | AWS/B2 Credentials invalid. | Check your `GEMINI_*` env vars or `~/.aws/credentials`. |
+| `Permission denied: '~/.gemini'` | File permission issues. | Run `chown -R $USER ~/.gemini` or check directory permissions. |
+
+**Debug Mode**: Currently, you can increase verbosity by inspecting the logs or running with standard python tracebacks enabled (default).
+
 ---
 
 ## 🤝 Contributing
 
 We welcome contributions! Whether it's reporting a bug, suggesting a feature, or writing code.
 
-1.  **Setup Dev Environment**:
-    ```bash
-    git clone https://github.com/dhruv13x/geminiai-cli.git
-    cd geminiai-cli
-    pip install -e .[dev]
-    ```
-2.  **Run Tests**:
-    ```bash
-    pytest tests/
-    ```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed instructions.
+
+1.  **Setup Dev Environment**: `pip install -e .[dev]`
+2.  **Run Tests**: `pytest tests/`
+3.  **Submit PR**: Follow the guidelines in the contributing guide.
 
 ---
 
