@@ -52,11 +52,11 @@ geminiai backup
 # 3. Push your backup to the cloud (requires configured credentials)
 geminiai sync push
 
-# 4. Check the system health
-geminiai doctor
+# 4. Check the account dashboard
+geminiai cooldown --cloud
 
-# 5. See your usage stats
-geminiai stats
+# 5. Get a smart account recommendation
+geminiai recommend
 ```
 
 ---
@@ -64,13 +64,27 @@ geminiai stats
 ## ✨ Features
 
 *   **🛡️ God Level Backups**: Securely backup your configuration and chat history to **Local**, **AWS S3**, or **Backblaze B2** storage. Supports **GPG Encryption** for sensitive data.
-*   **☁️ Unified Cloud Sync**: Seamlessly `push` and `pull` backups between your local machine and the cloud. Treat your backups like Git repositories.
-*   **🧠 Smart Recommendation Engine**: Automatically identifies and switches to the "Next Best Account" based on cooldown timers and Least Recently Used (LRU) logic.
-*   **❄️ Cooldown Tracking**: Intelligently tracks rate limits and cooldown periods to maximize your free tier usage without interruptions.
-*   **👤 Multi-Profile Support**: manage isolated environments (e.g., `--profile work`, `--profile personal`) with distinct configurations and history.
-*   **💬 Chat Management**: Dedicated tools to backup, restore, resume, and **clean up** chat sessions.
-*   **📊 Visual Analytics**: View beautiful, terminal-based bar charts of your usage history over the last 7 days.
+*   **🌍 Machine-Time Adaptive**: Automatically detects and uses your system's local timezone for all calculations and displays. No more manual IST/UTC conversions.
+*   **⏱️ Smart Session Tracking**: Tracks "First Used" timestamps to accurately predict Gemini's 24-hour rolling quota resets.
+*   **🧠 Intelligent Rotation**: Automatically recommends the "healthiest" account based on session start times and Least Recently Used (LRU) logic.
+*   **☁️ Unified Cloud Sync**: Seamlessly `push` and `pull` backups between your local machine and the cloud.
+*   **🛡️ Accident Protection**: Safeguards your session data by preventing accidental account switches from resetting your 24-hour quota clock.
+*   **📊 Visual Analytics**: View beautiful, terminal-based bar charts of your usage history and account health.
 *   **🩺 Doctor Mode**: Built-in diagnostic tool to validate your environment, dependencies, and configuration health.
+
+---
+
+## 📊 The Account Dashboard
+
+The `geminiai cooldown` command provides a real-time, comprehensive view of your account fleet.
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| **First Used** | Static | The exact local time your daily quota session began. |
+| **Last Used** | Relative | How long ago your most recent activity occurred. |
+| **Availability** | Running | A dynamic countdown to your next full quota refresh (`First Used + 24h`). |
+| **Next Reset** | Running | Displays explicit "Access resets at..." times captured from Gemini. |
+| **Status** | Status | Color-coded state: `READY` 🟢, `COOLDOWN` 🔴, or `SCHEDULED` 🟡. |
 
 ---
 
@@ -94,21 +108,6 @@ You can configure `geminiai-cli` using **Environment Variables**, **CLI Argument
 | `GEMINI_BACKUP_PASSWORD` | Password for GPG encryption. | None | No (for `--encrypt`) |
 | `DOPPLER_TOKEN` | Token for Doppler secrets management. | None | No |
 
-### CLI Commands & Arguments
-
-| Command | Description | Key Flags |
-| :--- | :--- | :--- |
-| `backup` | Create a new backup. | `--cloud`, `--encrypt`, `--src <path>` |
-| `restore` | Restore from a backup. | `--cloud`, `--auto` (smart restore), `--force` |
-| `sync` | Sync local & cloud backups. | `push`, `pull`, `--bucket <name>` |
-| `chat` | Manage chat history. | `backup`, `restore`, `cleanup`, `resume` |
-| `config` | Manage settings. | `--init` (wizard), `set`, `get`, `list` |
-| `doctor` | System diagnostics. | *(None)* |
-| `stats` | View usage charts. | *(None)* |
-| `recommend` | Get next account suggestion. | *(None)* |
-| `profile` | Manage profiles. | `export`, `import` |
-| `cooldown` | Manage account cooldowns. | `--remove <email>` |
-
 ---
 
 ## 🏗️ Architecture
@@ -120,41 +119,13 @@ src/geminiai_cli/
 ├── cli.py             # 🚀 Entry Point & Argument Routing
 ├── config.py          # ⚙️ Global Constants & Paths
 ├── backup.py          # 📦 Backup Logic (Local & Cloud dispatch)
-├── restore.py         # ♻️ Restore Logic (Auto-selection)
+├── restore.py         # ♻️ Restore Logic (Auto-selection & Session logs)
+├── cooldown.py        # ❄️ Master Dashboard & Adaptive Time Logic
+├── recommend.py       # 🧠 Recommendation Engine (Session-aware)
 ├── sync.py            # 🔄 Unified Sync (Push/Pull)
 ├── cloud_factory.py   # ☁️ Cloud Provider Abstract Factory
-├── cloud_s3.py        # 🔶 AWS S3 Implementation
-├── b2.py              # 🔥 Backblaze B2 Implementation
-├── chat.py            # 💬 Chat Session Management
-├── recommend.py       # 🧠 Recommendation Engine (LRU + Health)
-├── cooldown.py        # ❄️ Cooldown & Rate Limit Tracking
-├── stats.py           # 📊 Visualization Module
-└── doctor.py          # 🩺 Diagnostics & Health Checks
+└── stats.py           # 📊 Visualization Module
 ```
-
-**Data Flow**:
-1.  **User Input**: Commands are parsed by `argparse` in `cli.py`.
-2.  **Configuration**: Settings are loaded from Env Vars and `settings.json`.
-3.  **Execution**: The appropriate module (e.g., `backup.py`) is invoked.
-4.  **Cloud Operations**: If cloud flags are present, `cloud_factory.py` instantiates the correct provider (`S3` or `B2`).
-5.  **Output**: Results and logs are displayed using `rich` for a beautiful terminal experience.
-
----
-
-## 🐞 Troubleshooting
-
-If you encounter issues, run `geminiai doctor` first. It checks dependencies, permissions, and configuration validity.
-
-| Error Message | Possible Cause | Solution |
-| :--- | :--- | :--- |
-| `B2ConnectionError` | Invalid B2 credentials. | Run `geminiai config --init` or check `GEMINI_B2_*` env vars. |
-| `S3UploadFailed` | Bucket does not exist or permission denied. | Verify `GEMINI_S3_BUCKET` name and AWS IAM permissions. |
-| `GPG not found` | `gpg` is not installed. | Install GPG (`apt install gpg` / `brew install gnupg`). |
-| `Permission denied` | CLI cannot write to `~/.geminiai-cli`. | Ensure you have write permissions to your home directory. |
-| `No backups found` | No local backups exist. | Run `geminiai backup` or `geminiai sync pull`. |
-
-**Debug Mode**:
-To see detailed error tracebacks, the tool automatically prints stack traces on unhandled exceptions. Ensure your terminal supports ANSI colors for best readability.
 
 ---
 
@@ -162,35 +133,26 @@ To see detailed error tracebacks, the tool automatically prints stack traces on 
 
 We welcome contributions! Whether it's reporting a bug, suggesting a feature, or writing code.
 
-1.  Check out our [CONTRIBUTING.md](CONTRIBUTING.md) (if available) or simply fork the repo.
-2.  **Setup Dev Environment**:
+1.  **Setup Dev Environment**:
     ```bash
     git clone https://github.com/dhruv13x/geminiai-cli.git
     cd geminiai-cli
     pip install -e .[dev]
     ```
-3.  **Run Tests**:
+2.  **Run Tests**:
     ```bash
     pytest tests/
-    ```
-4.  **Linting**:
-    ```bash
-    ruff check src/
-    black src/
     ```
 
 ---
 
 ## 🗺️ Roadmap
 
-We are constantly improving `geminiai-cli`. Here is a glimpse of what is coming:
-
 *   **Phase 1 (Completed)**: Core Backup/Restore, Multi-Cloud (S3/B2), Sync, Auto-Updates.
-*   **Phase 2 (Current)**: Smart Recommendations, Usage Stats, Profiles, Doctor Mode.
+*   **Phase 2 (Completed)**: Machine-Time Adaptation, Session Tracking, Smart Rotation.
 *   **Phase 3 (Upcoming)**:
     *   🔔 **Webhooks**: Slack/Discord notifications for backup status.
     *   🐍 **Python SDK**: Import `geminiai` as a library in your own scripts.
-    *   🐳 **Docker Image**: Official container for server deployment.
 *   **Phase 4 (Vision)**: AI-driven anomaly detection and self-healing infrastructure.
 
 See [ROADMAP.md](ROADMAP.md) for the full detailed vision.
