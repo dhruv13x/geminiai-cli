@@ -9,7 +9,7 @@ from .banner import print_logo
 from .login import do_login
 from .logout import do_logout
 from .session import do_session
-from .cooldown import do_cooldown_list, do_remove_account
+from .cooldown import do_cooldown_list, do_remove_account, do_reset_all
 from .settings_cli import do_config
 from .doctor import do_doctor
 from .prune import do_prune
@@ -73,7 +73,9 @@ def main():
     elif args.command == "profile":
         do_profile(args)
     elif args.command == "cooldown":
-        if args.remove:
+        if args.reset_all:
+            do_reset_all(args)
+        elif args.remove:
             do_remove_account(args.remove[0], args)
         else:
             do_cooldown_list(args)

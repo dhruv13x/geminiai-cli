@@ -208,6 +208,7 @@ def get_parser() -> argparse.ArgumentParser:
     cooldown_parser.add_argument("--b2-id", help="B2 Key ID")
     cooldown_parser.add_argument("--b2-key", help="B2 App Key")
     cooldown_parser.add_argument("--remove", nargs=1, help="Remove an account from the dashboard (both cooldown and resets).")
+    cooldown_parser.add_argument("--reset-all", action="store_true", help="⚠️ Clear ALL account activity and reset data (Local & Cloud).")
 
     # Recommend command
     recommend_parser = subparsers.add_parser("recommend", aliases=["next"], help="Suggest the next best account (Green & Least Recently Used).")

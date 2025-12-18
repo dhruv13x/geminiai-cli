@@ -14,6 +14,57 @@ from . import history
 
 # ... existing code ...
 
+from rich.prompt import Confirm
+
+def do_reset_all(args):
+    """
+    Nuclear reset: Wipes all cooldown and reset data from local and cloud.
+    """
+    banner_text = "[bold red]⚠️  WARNING: This will wipe ALL account activity and reset data. ⚠️[/]"
+    console.print(Panel(Align.center(banner_text), border_style="red"))
+    
+    if not Confirm.ask("[bold yellow]Are you absolutely sure you want to proceed?[/]"):
+        cprint(NEON_YELLOW, "Aborted.")
+        return
+
+    cprint(NEON_CYAN, "Performing nuclear reset...")
+
+    # 1. Wipe Local Cooldowns
+    path = os.path.expanduser(COOLDOWN_FILE)
+    try:
+        with open(path, "w") as f:
+            json.dump({}, f)
+        cprint(NEON_GREEN, "[OK] Local cooldown state wiped.")
+    except Exception as e:
+        cprint(NEON_RED, f"[ERROR] Failed to wipe local cooldowns: {e}")
+
+    # 2. Wipe Local Resets
+    # Import here to avoid circular imports if any
+    from .reset_helpers import _save_store
+    try:
+        _save_store([])
+        cprint(NEON_GREEN, "[OK] Local reset history wiped.")
+    except Exception as e:
+        cprint(NEON_RED, f"[ERROR] Failed to wipe local resets: {e}")
+
+    # 3. Wipe Cloud (if credentials available)
+    try:
+        key_id, app_key, bucket_name = resolve_credentials(args)
+        if key_id and app_key and bucket_name:
+            cprint(NEON_CYAN, "Wiping cloud data...")
+            b2 = B2Manager(key_id, app_key, bucket_name)
+            
+            # Overwrite both cloud files with empty state
+            b2.upload_string("{}", "gemini-cooldown.json")
+            b2.upload_string("[]", "gemini-resets.json")
+            
+            cprint(NEON_GREEN, "[OK] Cloud data wiped successfully.")
+    except Exception as e:
+        # Creds might not be set, usually fine to skip silent unless explicitly requested
+        pass
+
+    cprint(NEON_GREEN, "\n✨ System clean. All account timers have been reset.")
+
 def do_remove_account(email: str, args=None):
     """
     Removes an account from the dashboard.
@@ -53,13 +104,16 @@ def do_remove_account(email: str, args=None):
         if key_id and app_key and bucket_name:
             cprint(NEON_CYAN, "Syncing removal to cloud...")
             
-            # Sync Cooldowns
+            # 3a. Sync Cooldowns (Direct Upload to ensure removal sticks)
             _sync_cooldown_file(direction='upload', args=args)
             
-            # Sync Resets
+            # 3b. Sync Resets (Direct Upload to ensure removal sticks)
             try:
                 b2 = B2Manager(key_id, app_key, bucket_name)
-                sync_resets_with_cloud(b2)
+                # Overwrite cloud file with clean local state
+                local_resets = get_all_resets()
+                resets_json_str = json.dumps(local_resets, ensure_ascii=False, indent=2)
+                b2.upload_string(resets_json_str, "gemini-resets.json")
             except Exception as e:
                  cprint(NEON_RED, f"[WARN] Failed to sync resets removal: {e}")
                  
