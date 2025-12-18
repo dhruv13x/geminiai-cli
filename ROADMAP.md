@@ -1,83 +1,56 @@
-# 🗺️ Visionary Roadmap: Gemini CLI Helper
+# 🗺️ Strategic ROADMAP.md
 
-This document outlines the strategic vision for the **Gemini CLI Helper**, categorizing features from foundational essentials to ambitious, "God Level" capabilities. Our goal is to evolve this tool into an indispensable, intelligent automation platform for the developer ecosystem.
-
----
-
-## Phase 1: Foundation (CRITICALLY MUST HAVE)
-
-**Focus**: Core functionality, stability, security, and basic usage.
-**Instruction**: Prioritize items that are partially built or standard for this type of tool.
-**Timeline**: Q1 (Completed)
-
-- [x] **Account Management**: Seamlessly log in, log out, and view session details (`--login`, `--logout`, `--session`).
-- [x] **Local Backups**: Robust local backup and restore functionality (`backup`, `restore`).
-- [x] **Cloud Backups (B2 Integration)**: Native support for Backblaze B2 cloud storage.
-- [x] **Unified Cloud Sync**: Seamlessly `push` and `pull` backups between local and cloud (`sync`).
-- [x] **Rate Limit Tracking**: Monitor and manage API rate limits (`resets` command).
-- [x] **Automated Updates**: Self-updating mechanism to keep the CLI current (`--update`).
-- [x] **Backup Retention Management**: Automated pruning of old backups (`prune` command).
-- [x] **System Diagnostic Tool**: Self-check health reporter (`doctor` command).
-- [x] **Cleanup Tool**: Clear temporary chat history and logs (`chat cleanup` command).
-- [x] **Configuration Management**: Manage persistent settings (`config` command).
-- [x] **Encrypted Backups**: Option to encrypt backup archives (`.tar.gz.gpg`) using GPG.
-- [x] **Interactive Configuration Wizard**: A guided, interactive setup process for first-time users (replacing manual command-line config).
-- [ ] **Comprehensive Documentation**: Complete API references, man pages, and a dedicated documentation site.
+This document outlines the strategic direction for **Gemini CLI Helper**, balancing innovation, stability, and technical debt management. It follows the **Strategic Roadmap Strategy V3**.
 
 ---
 
-## Phase 2: The Standard (MUST HAVE)
+## 🏁 Phase 0: The Core (Stability & Debt)
+**Goal**: Solid foundation. Ensure the current codebase is robust, well-tested, and easy to maintain before adding significant new complexity.
 
-**Focus**: Feature parity with top competitors, user experience improvements, and robust error handling.
-**Timeline**: Q2
-
-- [x] **Smart Account Recommendation**: "Next Best Account" logic to suggest the most rested account (Green & Least Recently Used).
-- [x] **Auto-Switching**: Automatically restore the best available account (`ga restore --auto`).
-- [x] **Visual Usage Graphs**: ASCII bar charts in the terminal to visualize usage patterns over the last 7 days (`stats`).
-- [x] **Profile Portability**: Export/Import profiles (`ga profile export/import`) for easy migration between machines.
-- [x] **Multi-Cloud Support**: Expand cloud storage support to AWS S3 (partially implemented: AWS S3 added).
-- [x] **Configuration Profiles**: Support for named profiles (e.g., `--profile work`, `--profile personal`) to easily switch contexts.
-- [ ] **Enhanced TUI (Terminal User Interface)**: Rich dashboards, real-time progress bars for all long-running operations, and interactive tables.
-- [ ] **Robust Error Handling & Telemetry**: Standardized error codes, suggested fixes in error messages, and optional crash reporting.
+- [x] **Testing**: Maintain Coverage > 85% `[Debt] [S]`
+- [x] **CI/CD**: Enforce Ruff Linting & Mypy Type Checking `[Debt] [S]`
+- [ ] **Documentation**: Complete API Reference & Man Pages `[Debt] [M]`
+- [ ] **Refactoring**: Standardize Error Handling across modules `[Debt] [M]`
+- [ ] **Refactoring**: Deprecate Python < 3.8 support `[Debt] [S]`
 
 ---
 
-## Phase 3: The Ecosystem (INTEGRATION & SHOULD HAVE)
+## 🚀 Phase 1: The Standard (Feature Parity)
+**Goal**: Competitiveness. Enhance user experience and performance to match or exceed market standards.
+*Risk*: Low
 
-**Focus**: Webhooks, API exposure, 3rd party plugins, SDK generation, and extensibility.
-**Timeline**: Q3
-
-- [ ] **Desktop Notifications**: Background daemon/cron job to alert when an account becomes "READY".
-- [ ] **Webhook Notifications**: Integration with Slack, Discord, and PagerDuty for alerts on backup failures or rate limit warnings.
-- [ ] **REST API Server**: A standalone daemon exposing CLI functionality via HTTP endpoints for remote management.
-- [ ] **Python SDK**: A distribute-able Python library (`import geminiai`) allowing programmatic control of the tool.
-- [ ] **CI/CD Integration**: Official GitHub Actions and GitLab CI runners for automated backup workflows in pipelines.
-- [ ] **Plugin System**: A hooks-based architecture allowing users to run custom scripts before/after backups (e.g., database dumps).
-- [ ] **Docker Image**: Official Docker container for easy deployment in self-hosted environments.
+- [ ] **UX**: Enhanced TUI (Progress Bars, Dashboards) `[Feat] [M]`
+- [x] **Config**: Interactive Configuration Wizard `[Feat] [S]`
+- [ ] **Performance**: Full Async I/O for Cloud Operations `[Feat] [L]`
+- [x] **UX**: Visual Usage Graphs (Stats) `[Feat] [S]`
+- [ ] **Config**: Refine Profile Management (Import/Export Validation) `[Feat] [S]`
 
 ---
 
-## Phase 4: The Vision (GOD LEVEL)
+## 🔌 Phase 2: The Ecosystem (Integration)
+**Goal**: Interoperability. Open the tool to external systems and developers.
+*Risk*: Medium (Requires API design freeze)
 
-**Focus**: "Futuristic" features, AI integration, advanced automation, and industry-disrupting capabilities.
-**Timeline**: Q4
-
-- [ ] **AI-Driven Anomaly Detection**: Machine learning models to analyze backup metadata and alert on unusual patterns (e.g., sudden size drops indicating corruption).
-- [ ] **Self-Healing Infrastructure**: Capabilities to automatically detect corrupted configurations or permissions and attempt auto-remediation.
-- [ ] **Natural Language Command Interface**: Control the CLI using natural language (e.g., "Gemini, restore yesterday's backup to the staging environment").
-- [ ] **Decentralized Storage (Web3)**: Integration with IPFS or Filecoin for immutable, decentralized backup storage.
-- [ ] **Predictive Rate Limiting**: AI prediction of rate limit exhaustion based on usage history, proactively pausing operations before limits are hit.
-- [ ] **Context-Aware Restoration**: Intelligent restoration that suggests specific backup snapshots based on the current Git branch or project state.
+- [ ] **API**: REST API Server for remote management `[Feat] [L]` (Requires Phase 1)
+- [ ] **SDK**: Python Library (`import geminiai`) `[Feat] [M]`
+- [ ] **Plugins**: Hook-based Extension System `[Feat] [XL]` (Requires Phase 1)
+- [ ] **Integrations**: Webhook Notifications (Slack/Discord) `[Feat] [S]`
 
 ---
 
-## The Sandbox (OUT OF THE BOX / OPTIONAL)
+## 🔮 Phase 3: The Vision (Innovation)
+**Goal**: Market Leader. Implement cutting-edge features that redefine the tool's capabilities.
+*Risk*: High (R&D)
 
-**Focus**: Wild, creative, experimental ideas that set the project apart.
+- [ ] **AI**: LLM Integration for Natural Language Commands `[Feat] [XL]`
+- [ ] **AI**: Anomaly Detection for Backup Integrity `[Feat] [XL]`
+- [ ] **Cloud**: Official Docker Image & K8s Helm Charts `[Feat] [M]`
+- [ ] **Cloud**: Self-Healing Infrastructure `[Feat] [L]`
 
-- [ ] **Federated Backup Swarm**: Peer-to-peer encrypted backup sharing between your own trusted devices without a central cloud.
-- [ ] **Gamification**: Achievements and stats tracking for uptime, successful backups, and streak maintenance.
-- [ ] **Voice Control Integration**: Execute backups via voice commands.
-- [ ] **Chaos Monkey Mode**: A testing mode that randomly simulates failures (network drops, disk full) to verify system resilience.
-- [ ] **Persistent TUI Dashboard**: A full-screen, responsive terminal application (like `htop`) for real-time monitoring and management.
-- [ ] **Quantum-Resistant Encryption**: Future-proof security using post-quantum cryptography algorithms.
+---
+
+## Legend
+- **[Debt]**: Technical Debt / Maintenance
+- **[Feat]**: New Feature
+- **[Bug]**: Bug Fix
+- **S/M/L/XL**: T-Shirt Size Estimates (Effort)
