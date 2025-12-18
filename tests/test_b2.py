@@ -3,12 +3,10 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import sys
-
-# Because we are now using the real b2sdk installed in the environment (due to pip install b2sdk earlier),
-# the patch.dict strategy might be tricky if the module is already imported or if b2sdk is a real package.
-# We should mock 'geminiai_cli.b2.B2Api' and 'geminiai_cli.b2.InMemoryAccountInfo' directly.
-
 from geminiai_cli import b2
+
+# We don't need fs for B2 tests since they mock the B2Api/Bucket classes mostly.
+# But conftest.py injects fs. That's fine.
 
 @patch("geminiai_cli.b2.B2Api")
 @patch("geminiai_cli.b2.InMemoryAccountInfo")
@@ -155,3 +153,80 @@ def test_b2_manager_download_to_string_fail(mock_mem_info, mock_b2_api):
 
     result = b2_mgr.download_to_string("remote_file")
     assert result is None
+
+@patch("geminiai_cli.b2.B2Api")
+@patch("geminiai_cli.b2.InMemoryAccountInfo")
+def test_b2_manager_upload_interface(mock_mem_info, mock_b2_api):
+    mock_bucket = MagicMock()
+    mock_b2_api.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2_mgr = b2.B2Manager("id", "key", "bucket")
+
+    b2_mgr.upload_file("local", "remote")
+    mock_bucket.upload_local_file.assert_called_with(local_file="local", file_name="remote")
+
+@patch("geminiai_cli.b2.B2Api")
+@patch("geminiai_cli.b2.InMemoryAccountInfo")
+def test_b2_manager_download_interface(mock_mem_info, mock_b2_api):
+    mock_bucket = MagicMock()
+    mock_b2_api.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2_mgr = b2.B2Manager("id", "key", "bucket")
+
+    b2_mgr.download_file("remote", "local")
+    mock_bucket.download_file_by_name.assert_called()
+
+@patch("geminiai_cli.b2.B2Api")
+@patch("geminiai_cli.b2.InMemoryAccountInfo")
+def test_b2_manager_list_files(mock_mem_info, mock_b2_api):
+    mock_bucket = MagicMock()
+
+    # Mock generator return from ls
+    file_ver = MagicMock()
+    file_ver.file_name = "test.txt"
+    file_ver.size = 100
+    file_ver.upload_timestamp = 1000
+
+    mock_bucket.ls.return_value = [(file_ver, None)]
+    mock_b2_api.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2_mgr = b2.B2Manager("id", "key", "bucket")
+
+    files = b2_mgr.list_files()
+    assert len(files) == 1
+    assert files[0].name == "test.txt"
+    assert files[0].size == 100
+
+@patch("geminiai_cli.b2.B2Api")
+@patch("geminiai_cli.b2.InMemoryAccountInfo")
+def test_b2_manager_list_files_fail(mock_mem_info, mock_b2_api):
+    mock_bucket = MagicMock()
+    mock_bucket.ls.side_effect = Exception("List fail")
+    mock_b2_api.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2_mgr = b2.B2Manager("id", "key", "bucket")
+
+    files = b2_mgr.list_files()
+    assert files == []
+
+@patch("geminiai_cli.b2.B2Api")
+@patch("geminiai_cli.b2.InMemoryAccountInfo")
+def test_b2_manager_delete_file(mock_mem_info, mock_b2_api):
+    mock_bucket = MagicMock()
+    file_ver = MagicMock()
+    file_ver.id_ = "123"
+    mock_bucket.get_file_info_by_name.return_value = file_ver
+
+    mock_b2_api.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2_mgr = b2.B2Manager("id", "key", "bucket")
+
+    b2_mgr.delete_file("remote")
+    mock_bucket.delete_file_version.assert_called_with("123", "remote")
+
+@patch("geminiai_cli.b2.B2Api")
+@patch("geminiai_cli.b2.InMemoryAccountInfo")
+def test_b2_manager_delete_file_fail(mock_mem_info, mock_b2_api):
+    mock_bucket = MagicMock()
+    mock_bucket.get_file_info_by_name.side_effect = Exception("Not found")
+
+    mock_b2_api.return_value.get_bucket_by_name.return_value = mock_bucket
+    b2_mgr = b2.B2Manager("id", "key", "bucket")
+
+    b2_mgr.delete_file("remote")
+    # Should print error but not crash

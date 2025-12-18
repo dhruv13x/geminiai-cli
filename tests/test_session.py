@@ -1,33 +1,37 @@
 # tests/test_session.py
 
 import pytest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 import os
 import json
 from geminiai_cli import session
+# Note: session.py hardcodes "~/.gemini/google_accounts.json" inside get_active_session
+# So we must create that specific file in the fake fs
 
-# Helper for json.load
-def mock_json_load(data):
-    return patch("json.load", return_value=data)
+def test_get_active_session_exists(fs):
+    # The code expands "~", so we need to match that.
+    # pyfakefs mocks os.path.expanduser to work with the fake /home/user (usually)
+    # let's assume standard behavior of expanduser with pyfakefs
 
-@patch("os.path.exists")
-def test_get_active_session_exists(mock_exists):
-    mock_exists.return_value = True
-    with patch("builtins.open", mock_open(read_data='{"active": "test@example.com"}')):
-        assert session.get_active_session() == "test@example.com"
+    home = os.path.expanduser("~")
+    gemini_home = os.path.join(home, ".gemini")
+    account_file = os.path.join(gemini_home, "google_accounts.json")
 
-@patch("os.path.exists")
-def test_get_active_session_not_exists(mock_exists):
-    mock_exists.return_value = False
+    fs.create_file(account_file, contents='{"active": "test@example.com"}')
+
+    assert session.get_active_session() == "test@example.com"
+
+def test_get_active_session_not_exists(fs):
+    # File not created
     assert session.get_active_session() is None
 
-@patch("os.path.exists")
-def test_get_active_session_malformed(mock_exists):
-    mock_exists.return_value = True
-    with patch("builtins.open", mock_open(read_data='{invalid_json}')):
-        # json.load will raise JSONDecodeError
-        with patch("json.load", side_effect=json.JSONDecodeError("msg", "doc", 0)):
-             assert session.get_active_session() is None
+def test_get_active_session_malformed(fs):
+    home = os.path.expanduser("~")
+    gemini_home = os.path.join(home, ".gemini")
+    account_file = os.path.join(gemini_home, "google_accounts.json")
+
+    fs.create_file(account_file, contents='{invalid_json}')
+    assert session.get_active_session() is None
 
 @patch("geminiai_cli.session.get_active_session")
 @patch("geminiai_cli.session.cprint")
@@ -50,8 +54,9 @@ def test_do_session_inactive(mock_cprint, mock_get_session):
 
 # Patch the symbol in CLI module where it is imported!
 @patch("geminiai_cli.cli.do_session")
-def test_main_session_arg(mock_do_session):
+def test_main_session_arg(mock_do_session, fs):
     from geminiai_cli.cli import main
+    # main() might parse args which triggers file checks or config loading
     with patch("sys.argv", ["geminiai", "--session"]):
         main()
         mock_do_session.assert_called_once()
