@@ -476,12 +476,72 @@ def test_do_list_resets_exception(fs, capsys):
     # It prints raw string if parse fails
     assert "bad-date" in captured.out
 
-def test_add_24h_cooldown_for_email(fs, capsys):
+def test_add_24h_cooldown_for_email_default(fs, capsys):
+    # Tests default behavior when no cooldown data exists (now + 24h)
     with patch("geminiai_cli.reset_helpers._save_store") as mock_save:
         reset_helpers.add_24h_cooldown_for_email("test@example.com")
         mock_save.assert_called()
     captured = capsys.readouterr()
     assert "Started 24h cooldown for test@example.com" in captured.out
+
+def test_add_24h_cooldown_for_email_with_first_used(fs, capsys):
+    # Tests that reset_dt = first_used + 24h if in future
+    from geminiai_cli.config import COOLDOWN_FILE
+    now = datetime.now().astimezone()
+    # first_used 5h ago -> reset should be in 19h
+    first_used = now - timedelta(hours=5)
+    
+    cd_data = {
+        "test@example.com": {
+            "first_used": first_used.isoformat(),
+            "last_used": now.isoformat()
+        }
+    }
+    fs.create_dir(os.path.dirname(COOLDOWN_FILE))
+    with open(COOLDOWN_FILE, "w") as f:
+        json.dump(cd_data, f)
+        
+    with patch("geminiai_cli.reset_helpers._save_store") as mock_save:
+        reset_helpers.add_24h_cooldown_for_email("test@example.com")
+        
+        args, _ = mock_save.call_args
+        saved_entries = args[0]
+        entry = next(e for e in saved_entries if e["email"] == "test@example.com")
+        
+        expected_reset = first_used + timedelta(hours=24)
+        actual_reset = datetime.fromisoformat(entry["reset_ist"])
+        
+        assert abs((actual_reset - expected_reset).total_seconds()) < 2
+
+def test_add_24h_cooldown_for_email_with_stale_first_used(fs, capsys):
+    # Tests that reset_dt = now + 24h if first_used + 24h is in past
+    from geminiai_cli.config import COOLDOWN_FILE
+    now = datetime.now().astimezone()
+    # first_used 25h ago -> reset was 1h ago (stale)
+    first_used = now - timedelta(hours=25)
+    
+    cd_data = {
+        "test@example.com": {
+            "first_used": first_used.isoformat(),
+            "last_used": now.isoformat()
+        }
+    }
+    fs.create_dir(os.path.dirname(COOLDOWN_FILE))
+    with open(COOLDOWN_FILE, "w") as f:
+        json.dump(cd_data, f)
+        
+    with patch("geminiai_cli.reset_helpers._save_store") as mock_save:
+        reset_helpers.add_24h_cooldown_for_email("test@example.com")
+        
+        args, _ = mock_save.call_args
+        saved_entries = args[0]
+        entry = next(e for e in saved_entries if e["email"] == "test@example.com")
+        
+        # Should fallback to now + 24h
+        expected_reset = now + timedelta(hours=24)
+        actual_reset = datetime.fromisoformat(entry["reset_ist"])
+        
+        assert abs((actual_reset - expected_reset).total_seconds()) < 2
 
 def test_merge_resets(fs):
     local = [
@@ -489,28 +549,21 @@ def test_merge_resets(fs):
         {"email": "b@b.com", "reset_ist": "2023-01-01T10:00:00", "id": "2"}
     ]
     remote = [
-        {"email": "a@a.com", "reset_ist": "2023-01-02T10:00:00", "id": "3"}, # newer
+        {"email": "a@a.com", "reset_ist": "2023-01-02T10:00:00", "id": "3"},
         {"email": "c@c.com", "reset_ist": "2023-01-01T10:00:00", "id": "4"}
     ]
 
     merged = reset_helpers.merge_resets(local, remote)
-    # a should take remote date
-    # b kept
-    # c added
-    assert len(merged) == 3
-
-    a_entry = next(e for e in merged if e["email"] == "a@a.com")
-    assert a_entry["reset_ist"] == "2023-01-02T10:00:00"
+    # Now preserves all 4 because IDs are unique
+    assert len(merged) == 4
 
 def test_merge_resets_invalid_ts(fs):
-    local = [{"email": "a@a.com", "reset_ist": "2023-01-01T10:00:00"}]
-    remote = [{"email": "a@a.com", "reset_ist": "invalid"}]
+    local = [{"email": "a@a.com", "reset_ist": "2023-01-01T10:00:00", "id": "1"}]
+    remote = [{"email": "a@a.com", "reset_ist": "invalid", "id": "2"}]
 
-    # invalid remote TS should be ignored, keeping local?
-    # Logic: try parse, if fail pass. So merged_map already has local. If remote invalid, it ignores update.
+    # Now preserves both because IDs are unique
     merged = reset_helpers.merge_resets(local, remote)
-    assert len(merged) == 1
-    assert merged[0]["reset_ist"] == "2023-01-01T10:00:00"
+    assert len(merged) == 2
 
 def test_sync_resets_with_cloud(fs, capsys):
     mock_provider = MagicMock()

@@ -341,6 +341,7 @@ def do_cooldown_list(args=None):
                     first_ts = datetime.datetime.fromisoformat(first_ts_raw)
                     if first_ts.tzinfo is None:
                         first_ts = first_ts.replace(tzinfo=datetime.timezone.utc)
+                    first_ts = first_ts.astimezone()
                     # Quota Reset is 24h from FIRST use
                     tool_unlock_time = first_ts + datetime.timedelta(hours=COOLDOWN_HOURS)
                 
@@ -348,12 +349,13 @@ def do_cooldown_list(args=None):
                     last_ts = datetime.datetime.fromisoformat(last_ts_raw)
                     if last_ts.tzinfo is None:
                         last_ts = last_ts.replace(tzinfo=datetime.timezone.utc)
+                    last_ts = last_ts.astimezone()
             except ValueError:
                 pass
 
         # --- 2. Hard Resets (Captured from Gemini) ---
-        gemini_reset_dt = None
-        is_auto_cooldown = False
+        manual_reset_dt = None
+        auto_reset_dt = None
         
         my_resets = []
         for r in resets_list:
@@ -362,6 +364,9 @@ def do_cooldown_list(args=None):
                     r_ts = datetime.datetime.fromisoformat(r["reset_ist"])
                     if r_ts.tzinfo is None:
                          r_ts = r_ts.astimezone()
+                    else:
+                         r_ts = r_ts.astimezone() # Ensure local
+                    
                     is_auto = "Auto-detected" in r.get("saved_string", "")
                     my_resets.append((r_ts, is_auto))
                 except Exception:
@@ -370,16 +375,23 @@ def do_cooldown_list(args=None):
         my_resets.sort(key=lambda x: x[0])
         for r_ts, auto in my_resets:
             if r_ts > now:
-                gemini_reset_dt = r_ts
-                is_auto_cooldown = auto
-                break
+                if auto:
+                    if not auto_reset_dt: auto_reset_dt = r_ts
+                else:
+                    if not manual_reset_dt: manual_reset_dt = r_ts
 
-        # --- 3. Calculate Availability (Max of both) ---
-        final_unlock_time = None
-        if tool_unlock_time and gemini_reset_dt:
-            final_unlock_time = max(tool_unlock_time, gemini_reset_dt)
-        else:
-            final_unlock_time = tool_unlock_time or gemini_reset_dt
+        # --- 3. Calculate Availability ---
+        # Rule: Max(FirstUsed+24h, ManualReset)
+        # We ignore auto_reset_dt for availability calculation because it's 
+        # redundant with tool_unlock_time (and often less accurate for old data).
+        final_unlock_time = tool_unlock_time
+        if manual_reset_dt:
+            if not final_unlock_time or manual_reset_dt > final_unlock_time:
+                final_unlock_time = manual_reset_dt
+        
+        # Fallback: if somehow we have NO tool_unlock_time but have an auto_reset, use it.
+        if not final_unlock_time and auto_reset_dt:
+            final_unlock_time = auto_reset_dt
 
         availability_str = "Now"
         avail_style = "[bold green]Now[/]"
@@ -395,15 +407,22 @@ def do_cooldown_list(args=None):
         first_used_str = first_ts.astimezone().strftime('%I:%M %p') if first_ts else "-"
         last_used_str = format_ago(now - last_ts) if last_ts else "-"
 
-        next_reset_str = "-"
-        if gemini_reset_dt and not is_auto_cooldown:
-            # Only show "Next Scheduled Reset" if it was a REAL captured reset
-            diff = gemini_reset_dt - now
-            next_reset_str = f"[magenta]{format_delta(diff)}[/]"
+        # Next Scheduled Reset Column: Show both if they exist
+        parts = []
+        if manual_reset_dt:
+            diff = manual_reset_dt - now
+            parts.append(f"[magenta]{format_delta(diff)} (M)[/]")
+        if auto_reset_dt:
+            # Only show auto if it differs significantly from manual or tool_unlock
+            diff = auto_reset_dt - now
+            # If it's close to tool_unlock, it's just the 'system' cooldown
+            parts.append(f"[dim]{format_delta(diff)} (A)[/]")
+        
+        next_reset_str = " / ".join(parts) if parts else "-"
 
         # Determine Status
         if is_locked:
-            if gemini_reset_dt and not is_auto_cooldown and gemini_reset_dt >= (tool_unlock_time or gemini_reset_dt):
+            if manual_reset_dt and manual_reset_dt >= (tool_unlock_time or manual_reset_dt):
                 status = "[bold yellow]🟡 SCHEDULED[/]"
             else:
                 status = "[bold red]🔴 COOLDOWN[/]"

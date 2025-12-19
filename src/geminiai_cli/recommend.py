@@ -83,6 +83,11 @@ def get_recommendation() -> Optional[Recommendation]:
         for r in resets_list:
             if r.get("email", "").lower() == email:
                 try:
+                    # Ignore "Auto-detected" resets in recommendation logic because
+                    # they are redundant with 'is_locked' and might be less accurate
+                    if "Auto-detected" in r.get("saved_string", ""):
+                        continue
+                        
                     r_ts = datetime.datetime.fromisoformat(r["reset_ist"])
                     if r_ts.tzinfo is None:
                         r_ts = r_ts.astimezone()

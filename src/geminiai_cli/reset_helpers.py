@@ -454,10 +454,33 @@ def add_24h_cooldown_for_email(email: str) -> Dict[str, Any]:
     """
     Manually adds a 24-hour cooldown for the given email starting NOW.
     Used when switching OUT of an account.
+    Calculates reset time as first_used + 24h if possible, otherwise now + 24h.
     """
     now = _now_local()
     reset_dt = now + timedelta(hours=24)
-    
+
+    # Try to honor the 24h rolling window from the FIRST use of the session
+    try:
+        # Local import to avoid circular dependency with cooldown.py
+        from .cooldown import get_cooldown_data
+        cd_data = get_cooldown_data()
+        if email in cd_data:
+            entry = cd_data[email]
+            first_used_str = entry.get("first_used") if isinstance(entry, dict) else entry
+            if first_used_str:
+                first_ts = datetime.fromisoformat(first_used_str)
+                if first_ts.tzinfo is None:
+                    first_ts = first_ts.astimezone()
+                
+                candidate_reset = first_ts + timedelta(hours=24)
+                # If the 24h window from first_used is still in the future, use it.
+                # If it's already passed, it means the session exceeded 24h or first_used is stale,
+                # so we fall back to the default now + 24h to ensure the account is locked after switch-out.
+                if candidate_reset > now:
+                    reset_dt = candidate_reset
+    except Exception:
+        pass
+
     entry = {
         "id": str(uuid.uuid4())[:8],
         "email": email,
@@ -482,40 +505,22 @@ def merge_resets(local: List[Dict], remote: List[Dict]) -> List[Dict]:
     """
     Merges two lists of resets.
     Strategy:
-     - Key by 'email'.
-     - If email exists in both, keep the one with LATER reset_ist.
-     - If email is missing, keep entry (keyed by ID to avoid total dupes if possible, but email is primary).
+     - Use 'id' as the primary key for exact de-duplication.
+     - For the same email, we allow multiple entries (e.g., Manual and Auto).
     """
     merged_map = {}
     
-    all_entries = local + remote
-    
-    for e in all_entries:
-        email = e.get("email")
-        if not email:
-            # Entries without email are hard to de-dupe logic-wise, just keep them by ID?
-            # For now, we'll just let them exist if IDs are unique.
-            # If IDs collide, last one wins.
-            merged_map[e.get("id", str(uuid.uuid4()))] = e
-            continue
+    for e in local + remote:
+        eid = e.get("id")
+        if not eid:
+            # Fallback if ID is missing (shouldn't happen with new entries)
+            eid = f"{e.get('email')}-{e.get('reset_ist')}"
             
-        email = email.lower()
-        
-        if email not in merged_map:
-            merged_map[email] = e
-        else:
-            # Compare dates
-            try:
-                curr_reset = datetime.fromisoformat(merged_map[email]["reset_ist"])
-                new_reset = datetime.fromisoformat(e["reset_ist"])
-                
-                if new_reset > curr_reset:
-                    merged_map[email] = e
-            except Exception:
-                # if parse fails, stick with what we have or overwrite?
-                # Let's assume 'e' is valid if we are here, or if both invalid, whatever.
-                pass
-
+        # If we have a collision on ID, we just keep the existing one (or latest).
+        # Since local usually comes first in local+remote, local wins on ID collision.
+        if eid not in merged_map:
+            merged_map[eid] = e
+            
     return list(merged_map.values())
 
 def sync_resets_with_cloud(provider):
