@@ -162,7 +162,7 @@ def do_recommend(args=None):
         return
 
     # It's Green/Ready
-    console.print(f"The next best account is: [bold {NEON_GREEN}]{rec.email}[/]")
+    console.print(f"The next best account is: [bold green]{rec.email}[/]")
 
     if rec.last_used:
         # formatting
@@ -173,5 +173,5 @@ def do_recommend(args=None):
     else:
         console.print("Last used: [bold]Never / Unknown[/] (Most Rested)")
 
-    console.print(f"[{NEON_GREEN}]✓ Account is Ready to use[/]")
+    console.print("[green]✓ Account is Ready to use[/]")
     console.print()
