@@ -1,5 +1,9 @@
 # Changelog
 
+## [16.0.0] - 2025-12-19
+### Bug Fixes
+- corrected rolling 24h cooldown logic and enhanced dashboard transparency
+
 ## [15.0.0] - 2025-12-18
 ### Documentation
 - Update ROADMAP.md to V3 strategic format (#44)
