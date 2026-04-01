@@ -1,5 +1,9 @@
 # Changelog
 
+## [17.0.0] - 2026-04-01
+### Features
+- **chat:** backup latest session per project and restore all projects
+
 ## [16.0.1] - 2025-12-19
 ### Bug Fixes
 - **ui:** resolve Rich MarkupError in recommendation display
