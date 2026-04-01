@@ -14,16 +14,62 @@ def backup_chat_history(backup_path: str, gemini_home_dir: str):
         return
 
     backup_dir = os.path.join(backup_path, "tmp")
+
+    # Ensure only one latest backup exists
+    if os.path.exists(backup_dir):
+        shutil.rmtree(backup_dir)
     os.makedirs(backup_dir, exist_ok=True)
 
     try:
-        for item in os.listdir(source_path):
-            item_path = os.path.join(source_path, item)
-            dest_path = os.path.join(backup_dir, item)
-            if os.path.islink(item_path) or os.path.isfile(item_path):
-                shutil.copy(item_path, dest_path)
-            elif os.path.isdir(item_path):
-                shutil.copytree(item_path, dest_path, dirs_exist_ok=True)
+        items = [os.path.join(source_path, i) for i in os.listdir(source_path)]
+        if not items:
+            cprint(NEON_YELLOW, "No chat history found to backup.")
+            return
+
+        # Process each project directory separately (latest chat per project)
+        for item in items:
+            name = os.path.basename(item)
+
+            # Skip helper binary directory
+            if name == "bin":
+                continue
+            # Skip Gemini runtime hash directories
+            if len(name) == 64:
+                try:
+                    int(name, 16)
+                    continue
+                except ValueError:
+                    pass
+
+            dest_path = os.path.join(backup_dir, name)
+
+            if os.path.islink(item) or os.path.isfile(item):
+                shutil.copy(item, dest_path)
+
+            elif os.path.isdir(item):
+                shutil.copytree(item, dest_path, dirs_exist_ok=True)
+
+                # Keep only the latest chat session inside chats/ directories
+                try:
+                    for root, dirs, files in os.walk(dest_path):
+                        if os.path.basename(root) == "chats":
+                            sessions = [
+                                os.path.join(root, f)
+                                for f in os.listdir(root)
+                                if f.startswith("session-") and f.endswith(".json")
+                            ]
+
+                            if len(sessions) > 1:
+                                latest_session = max(
+                                    sessions,
+                                    key=lambda p: os.path.basename(p)
+                                )
+
+                                for s in sessions:
+                                    if s != latest_session:
+                                        os.remove(s)
+                except Exception:
+                    pass
         cprint(NEON_GREEN, f"Chat history successfully backed up to {backup_dir}")
     except Exception as e:
         cprint(NEON_RED, f"Failed to backup chat history: {e}")
@@ -41,13 +87,51 @@ def restore_chat_history(backup_path: str, gemini_home_dir: str):
     os.makedirs(destination_path, exist_ok=True)
 
     try:
-        for item in os.listdir(backup_dir):
-            item_path = os.path.join(backup_dir, item)
-            dest_path = os.path.join(destination_path, item)
-            if os.path.islink(item_path) or os.path.isfile(item_path):
-                shutil.copy(item_path, dest_path)
-            elif os.path.isdir(item_path):
-                shutil.copytree(item_path, dest_path, dirs_exist_ok=True)
+        # Clean destination first (except bin if present)
+        for item in os.listdir(destination_path):
+            if item == "bin":
+                continue
+            path = os.path.join(destination_path, item)
+            if os.path.isfile(path) or os.path.islink(path):
+                os.unlink(path)
+            elif os.path.isdir(path):
+                shutil.rmtree(path)
+
+        items = [os.path.join(backup_dir, i) for i in os.listdir(backup_dir)]
+        if not items:
+            cprint(NEON_YELLOW, "No chat backup found to restore.")
+            return
+
+        # Restore all project backups (each already contains only its latest session)
+        for item in items:
+            name = os.path.basename(item)
+            dest_path = os.path.join(destination_path, name)
+
+            if os.path.islink(item) or os.path.isfile(item):
+                shutil.copy(item, dest_path)
+            elif os.path.isdir(item):
+                shutil.copytree(item, dest_path, dirs_exist_ok=True)
+
+                # Safety check: ensure only one latest session remains
+                try:
+                    for root, dirs, files in os.walk(dest_path):
+                        if os.path.basename(root) == "chats":
+                            sessions = [
+                                os.path.join(root, f)
+                                for f in os.listdir(root)
+                                if f.startswith("session-") and f.endswith(".json")
+                            ]
+
+                            if len(sessions) > 1:
+                                latest_session = max(
+                                    sessions,
+                                    key=lambda p: os.path.basename(p)
+                                )
+                                for s in sessions:
+                                    if s != latest_session:
+                                        os.remove(s)
+                except Exception:
+                    pass
         cprint(NEON_GREEN, "Chat history successfully restored.")
     except Exception as e:
         cprint(NEON_RED, f"Failed to restore chat history: {e}")

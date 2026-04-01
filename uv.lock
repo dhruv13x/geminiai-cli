@@ -779,13 +779,14 @@ wheels = [
 
 [[package]]
 name = "geminiai-cli"
-version = "15.0.0"
+version = "16.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "b2sdk", version = "2.9.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "b2sdk", version = "2.10.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "boto3", version = "1.37.38", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "boto3", version = "1.42.12", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "freezegun" },
     { name = "rich" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
@@ -822,6 +823,7 @@ requires-dist = [
     { name = "b2sdk", specifier = ">=1.18.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.3.0" },
     { name = "boto3", specifier = ">=1.28.0" },
+    { name = "freezegun", specifier = ">=1.5.5" },
     { name = "freezegun", marker = "extra == 'dev'", specifier = ">=1.2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11.0" },
     { name = "pyfakefs", marker = "extra == 'dev'", specifier = ">=5.0.0" },
