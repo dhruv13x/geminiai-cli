@@ -1,3 +1,9 @@
+
+
+⚠️ Important - this deed is no longer maintained here
+📍 its moved to https://github.com/dhruv13x/gemini-manager/ for good 
+
+
 # Gemini AI Automation Tool
 
 <div align="center">
